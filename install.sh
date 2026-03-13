@@ -31,24 +31,87 @@ error()   { echo -e "${RED}[ERROR]${NC} $1"; }
 
 # ── Check prerequisites ──
 
-check_node() {
-  if ! command -v node &> /dev/null; then
-    error "Node.js is not installed."
-    echo ""
-    echo "Install Node.js:"
-    echo "  macOS:   brew install node"
-    echo "  Ubuntu:  sudo apt install nodejs npm"
-    echo "  Or:      https://nodejs.org/"
-    echo ""
+install_node() {
+  # Detect OS and install Node.js 20 LTS
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    if command -v brew &> /dev/null; then
+      info "Installing Node.js via Homebrew..."
+      brew install node@20
+      brew link --overwrite node@20 2>/dev/null || brew link --force node@20 2>/dev/null || true
+    else
+      info "Installing Homebrew first..."
+      /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+      # Load brew into current shell
+      if [ -f "/opt/homebrew/bin/brew" ]; then
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+      elif [ -f "/usr/local/bin/brew" ]; then
+        eval "$(/usr/local/bin/brew shellenv)"
+      fi
+      brew install node@20
+      brew link --overwrite node@20 2>/dev/null || brew link --force node@20 2>/dev/null || true
+    fi
+  elif command -v apt-get &> /dev/null; then
+    info "Installing Node.js 20 via NodeSource..."
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+  elif command -v yum &> /dev/null; then
+    info "Installing Node.js 20 via NodeSource..."
+    curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
+    sudo yum install -y nodejs
+  else
+    error "Cannot auto-install Node.js on this OS."
+    echo "  Please install manually: https://nodejs.org/"
     exit 1
   fi
 
-  NODE_VERSION=$(node -v | sed 's/v//' | cut -d. -f1)
-  if [ "$NODE_VERSION" -lt 18 ]; then
-    error "Node.js >= 18 required. Current: $(node -v)"
+  # Verify
+  if ! command -v node &> /dev/null; then
+    error "Node.js installation failed."
+    echo "  Please install manually: https://nodejs.org/"
     exit 1
   fi
-  success "Node.js $(node -v) detected"
+  success "Node.js $(node -v) installed successfully"
+}
+
+check_node() {
+  local NEED_INSTALL=false
+
+  if ! command -v node &> /dev/null; then
+    warn "Node.js is not installed."
+    NEED_INSTALL=true
+  else
+    NODE_VERSION=$(node -v | sed 's/v//' | cut -d. -f1)
+    if [ "$NODE_VERSION" -lt 18 ]; then
+      warn "Node.js >= 18 required. Current: $(node -v)"
+      NEED_INSTALL=true
+    fi
+  fi
+
+  if [ "$NEED_INSTALL" = true ]; then
+    echo ""
+    read -rp "  Install Node.js 20 LTS automatically? (Y/n): " INSTALL_NODE
+    INSTALL_NODE="${INSTALL_NODE:-Y}"
+    if [[ "$INSTALL_NODE" =~ ^[Yy]$ ]]; then
+      install_node
+    else
+      error "Node.js >= 18 is required. Install it and try again."
+      echo "  https://nodejs.org/"
+      exit 1
+    fi
+  fi
+
+  # Resolve absolute path to node binary
+  # GUI apps (Claude Desktop, Cursor...) don't load shell profiles,
+  # so "node" alone may find a wrong version or not found at all.
+  # We detect the real binary path to write into IDE configs.
+  NODE_BIN="$(which node)"
+
+  case "$NODE_BIN" in
+    /*) ;; # already absolute — good
+    *)  NODE_BIN="/usr/local/bin/node" ;; # fallback
+  esac
+
+  success "Node.js $(node -v) at ${BOLD}$NODE_BIN${NC}"
 }
 
 check_npm() {
@@ -158,7 +221,7 @@ configure_claude_code() {
       -e BUILDERX_API_URL="$API_URL" \
       -e BUILDERX_TOKEN="$TOKEN" \
       -e BUILDERX_SITE_ID="$SITE_ID" \
-      -- node "$MCP_INDEX"
+      -- "$NODE_BIN" "$MCP_INDEX"
     success "Claude Code configured (via CLI)"
   else
     # Fallback: write to ~/.claude.json
@@ -172,7 +235,7 @@ configure_claude_code() {
           const config = JSON.parse(fs.readFileSync('$CLAUDE_CONFIG', 'utf8'));
           if (!config.mcpServers) config.mcpServers = {};
           config.mcpServers['builderx-cms'] = {
-            command: 'node',
+            command: '$NODE_BIN',
             args: ['$MCP_INDEX'],
             env: {
               BUILDERX_API_URL: '$API_URL',
@@ -197,7 +260,7 @@ write_claude_config() {
 {
   "mcpServers": {
     "builderx-cms": {
-      "command": "node",
+      "command": "$NODE_BIN",
       "args": ["$MCP_INDEX"],
       "env": {
         "BUILDERX_API_URL": "$API_URL",
@@ -229,7 +292,7 @@ configure_claude_desktop() {
       const config = JSON.parse(fs.readFileSync('$CLAUDE_DESKTOP_CONFIG', 'utf8'));
       if (!config.mcpServers) config.mcpServers = {};
       config.mcpServers['builderx-cms'] = {
-        command: 'node',
+        command: '$NODE_BIN',
         args: ['$MCP_INDEX'],
         env: {
           BUILDERX_API_URL: '$API_URL',
@@ -244,7 +307,7 @@ configure_claude_desktop() {
 {
   "mcpServers": {
     "builderx-cms": {
-      "command": "node",
+      "command": "$NODE_BIN",
       "args": ["$MCP_INDEX"],
       "env": {
         "BUILDERX_API_URL": "$API_URL",
@@ -274,7 +337,7 @@ configure_cursor() {
       const config = JSON.parse(fs.readFileSync('$CURSOR_CONFIG', 'utf8'));
       if (!config.mcpServers) config.mcpServers = {};
       config.mcpServers['builderx-cms'] = {
-        command: 'node',
+        command: '$NODE_BIN',
         args: ['$MCP_INDEX'],
         env: {
           BUILDERX_API_URL: '$API_URL',
@@ -289,7 +352,7 @@ configure_cursor() {
 {
   "mcpServers": {
     "builderx-cms": {
-      "command": "node",
+      "command": "$NODE_BIN",
       "args": ["$MCP_INDEX"],
       "env": {
         "BUILDERX_API_URL": "$API_URL",
@@ -318,7 +381,7 @@ configure_windsurf() {
       const config = JSON.parse(fs.readFileSync('$WINDSURF_CONFIG', 'utf8'));
       if (!config.mcpServers) config.mcpServers = {};
       config.mcpServers['builderx-cms'] = {
-        command: 'node',
+        command: '$NODE_BIN',
         args: ['$MCP_INDEX'],
         env: {
           BUILDERX_API_URL: '$API_URL',
@@ -333,7 +396,7 @@ configure_windsurf() {
 {
   "mcpServers": {
     "builderx-cms": {
-      "command": "node",
+      "command": "$NODE_BIN",
       "args": ["$MCP_INDEX"],
       "env": {
         "BUILDERX_API_URL": "$API_URL",
@@ -367,7 +430,7 @@ configure_augment() {
 {
   "mcpServers": {
     "builderx-cms": {
-      "command": "node",
+      "command": "$NODE_BIN",
       "args": ["$MCP_INDEX"],
       "env": {
         "BUILDERX_API_URL": "$API_URL",
@@ -444,6 +507,7 @@ print_summary() {
   echo -e "${GREEN}${BOLD}  Installation Complete!${NC}"
   echo -e "${CYAN}═══════════════════════════════════════════════════${NC}"
   echo ""
+  echo -e "  Node.js    : ${BOLD}$NODE_BIN${NC}"
   echo -e "  MCP Server : ${BOLD}$MCP_INDEX${NC}"
   echo -e "  API URL    : $API_URL"
   echo -e "  Site ID    : $SITE_ID"
@@ -459,7 +523,7 @@ print_summary() {
   echo "    BUILDERX_API_URL=$API_URL \\"
   echo "    BUILDERX_TOKEN=<token> \\"
   echo "    BUILDERX_SITE_ID=$SITE_ID \\"
-  echo "    node $MCP_INDEX"
+  echo "    $NODE_BIN $MCP_INDEX"
   echo ""
 }
 
