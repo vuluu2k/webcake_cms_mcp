@@ -138,6 +138,176 @@ Restart VS Code.
 
 ---
 
+## Usage Examples
+
+### Example 1: Write backend HTTP function + frontend integration
+
+**Prompt:**
+```
+Create a newsletter subscription feature. Backend saves email to "subscribers" collection,
+frontend calls the backend function.
+```
+
+**AI agent will automatically:**
+
+**Step 1** — Call `get_http_function` to read current code
+
+**Step 2** — Call `update_http_function` to add new functions:
+
+```javascript
+import { DBConnection } from 'webcake-data';
+const db = new DBConnection();
+const Subscriber = db.model('subscribers');
+
+export const post_Subscribe = async (request) => {
+  const { email } = request.params;
+  if (!email) return { error: 'Email is required' };
+
+  const exists = await Subscriber.exists({ email });
+  if (exists) return { error: 'Already subscribed' };
+
+  await Subscriber.create({ email, subscribed_at: new Date() });
+  return { success: true, message: 'Subscribed successfully!' };
+}
+
+export const get_Subscribers = async (request) => {
+  const { page = 1, limit = 20 } = request.params;
+  const data = await Subscriber.find()
+    .sort({ subscribed_at: -1 })
+    .limit(limit)
+    .skip((page - 1) * limit)
+    .exec();
+  const total = await Subscriber.countDocuments();
+  return { data, total, page };
+}
+```
+
+**Step 3** — Call `update_site_custom_code` to add frontend code:
+
+`code_before_head`:
+```html
+<script src="https://cdn.jsdelivr.net/npm/webcake-fn/dist/webcake-fn.umd.min.js"></script>
+```
+
+`code_custom_javascript`:
+```javascript
+document.getElementById('newsletter-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('newsletter-email').value;
+  try {
+    const result = await api.post_Subscribe({ email });
+    if (result.success) {
+      window.useNotification('success', { title: result.message });
+    } else {
+      window.useNotification('error', { title: result.error });
+    }
+  } catch (err) {
+    window.useNotification('error', { title: 'Error', message: err.message });
+  }
+});
+```
+
+---
+
+### Example 2: Batch create blog articles
+
+**Prompt:**
+```
+Write 3 blog posts about summer skincare, each 300 words, with SEO-friendly slugs.
+```
+
+**AI agent calls `create_article` 3 times:**
+
+```
+create_article({
+  name: "5 Steps for Summer Skincare",
+  slug: "5-steps-summer-skincare",
+  content: "<h2>...</h2><p>...</p>",
+  tags: ["skincare", "summer"]
+})
+
+create_article({
+  name: "Sun Protection Done Right",
+  slug: "sun-protection-done-right",
+  content: "<h2>...</h2><p>...</p>",
+  tags: ["skincare", "sunscreen"]
+})
+
+create_article({
+  name: "Moisturizing Oily Skin",
+  slug: "moisturizing-oily-skin",
+  content: "<h2>...</h2><p>...</p>",
+  tags: ["skincare", "moisturizer"]
+})
+```
+
+---
+
+### Example 3: Debug and test a function
+
+**Prompt:**
+```
+Test the get_Subscribers function to see if it works
+```
+
+**AI agent calls:**
+```
+run_function({
+  function_name: "Subscribers",
+  method: "GET",
+  params: { page: 1, limit: 5 }
+})
+```
+
+Returns the result or error, AI agent reads and explains to the developer.
+
+---
+
+### Example 4: Add custom CSS
+
+**Prompt:**
+```
+Add hover effect to all product cards: slight lift with drop shadow.
+```
+
+**AI agent calls `update_site_custom_code`:**
+
+`code_custom_css`:
+```css
+.product-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.product-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+```
+
+---
+
+### Example 5: Find customer and send email
+
+**Prompt:**
+```
+Find the customer with email john@example.com and send a thank-you email.
+```
+
+**AI agent calls 2 tools:**
+
+```
+find_customer({ by: "email", value: "john@example.com" })
+→ Found: { name: "John Doe", email: "john@example.com" }
+
+send_mail({
+  to: "john@example.com",
+  subject: "Thank you for your purchase!",
+  body: "<h2>Hi John Doe,</h2><p>Thank you for shopping with us...</p>"
+})
+```
+
+---
+
 ## Available Tools
 
 ### CMS Files
