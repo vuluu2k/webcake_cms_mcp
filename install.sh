@@ -2,13 +2,7 @@
 
 # ═══════════════════════════════════════════════════════════
 #  BuilderX CMS MCP Server - Auto Installer
-#  Supports: Claude Code, Cursor, Windsurf, Augment
-#
-#  Usage:
-#    Interactive:  ./install.sh
-#    Via curl:     curl -fsSL <url>/install.sh | bash -s -- --token YOUR_TOKEN --site-id YOUR_SITE_ID
-#    With IDE:     ./install.sh --token XX --site-id YY --ide claude
-#    Uninstall:    ./install.sh --uninstall
+#  Supports: Claude Desktop, Claude Code, Cursor, Windsurf, Augment
 # ═══════════════════════════════════════════════════════════
 
 set -e
@@ -21,37 +15,11 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 BOLD='\033[1m'
 
-# ── Detect if stdin is a terminal (interactive) or pipe ──
-IS_INTERACTIVE=false
-if [ -t 0 ]; then
-  IS_INTERACTIVE=true
-fi
-
-# ── Parse CLI arguments ──
-ARG_API_URL=""
-ARG_TOKEN=""
-ARG_SITE_ID=""
-ARG_IDE=""
-ARG_INSTALL_DIR=""
-ARG_UNINSTALL=false
-
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --api-url)     ARG_API_URL="$2"; shift 2 ;;
-    --token)       ARG_TOKEN="$2"; shift 2 ;;
-    --site-id)     ARG_SITE_ID="$2"; shift 2 ;;
-    --ide)         ARG_IDE="$2"; shift 2 ;;
-    --dir)         ARG_INSTALL_DIR="$2"; shift 2 ;;
-    --uninstall)   ARG_UNINSTALL=true; shift ;;
-    *)             shift ;;
-  esac
-done
-
 print_banner() {
   echo ""
   echo -e "${CYAN}╔══════════════════════════════════════════════════╗${NC}"
   echo -e "${CYAN}║${NC}  ${BOLD}BuilderX CMS MCP Server - Installer${NC}             ${CYAN}║${NC}"
-  echo -e "${CYAN}║${NC}  Supports: Claude Code, Cursor, Windsurf, Augment${CYAN}║${NC}"
+  echo -e "${CYAN}║${NC}  Claude Desktop, Claude Code, Cursor, Windsurf...${CYAN}║${NC}"
   echo -e "${CYAN}╚══════════════════════════════════════════════════╝${NC}"
   echo ""
 }
@@ -60,42 +28,6 @@ info()    { echo -e "${BLUE}[INFO]${NC} $1"; }
 success() { echo -e "${GREEN}[OK]${NC} $1"; }
 warn()    { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error()   { echo -e "${RED}[ERROR]${NC} $1"; }
-
-# Prompt user only if interactive, otherwise use default/error
-prompt_input() {
-  local prompt_msg="$1"
-  local default_val="$2"
-  local var_name="$3"
-  local required="$4"  # "required" or ""
-
-  if [ "$IS_INTERACTIVE" = true ]; then
-    if [ -n "$default_val" ]; then
-      read -rp "  $prompt_msg [$default_val]: " INPUT
-      INPUT="${INPUT:-$default_val}"
-    else
-      read -rp "  $prompt_msg: " INPUT
-    fi
-    eval "$var_name=\"\$INPUT\""
-  else
-    if [ -n "$default_val" ]; then
-      eval "$var_name=\"$default_val\""
-    elif [ "$required" = "required" ]; then
-      error "$var_name is required. Use --$(echo "$var_name" | tr '[:upper:]' '[:lower:]' | tr '_' '-') <value>"
-      echo ""
-      echo "Usage:"
-      echo "  curl -fsSL <url>/install.sh | bash -s -- --token YOUR_TOKEN --site-id YOUR_SITE_ID"
-      echo ""
-      echo "Options:"
-      echo "  --api-url URL     API URL (default: https://api.storecake.io)"
-      echo "  --token TOKEN     JWT Bearer token (required)"
-      echo "  --site-id ID      Site ID (required)"
-      echo "  --ide IDE         IDE to configure: claude, cursor, windsurf, augment, all"
-      echo "  --dir PATH        Install directory (default: ~/.builderx-cms-mcp)"
-      echo ""
-      exit 1
-    fi
-  fi
-}
 
 # ── Check prerequisites ──
 
@@ -134,33 +66,17 @@ DEFAULT_INSTALL_DIR="$HOME/.builderx-cms-mcp"
 
 install_mcp() {
   echo ""
-
-  # Use CLI arg or prompt
-  if [ -n "$ARG_INSTALL_DIR" ]; then
-    INSTALL_DIR="$ARG_INSTALL_DIR"
-  elif [ "$IS_INTERACTIVE" = true ]; then
-    info "Where to install the MCP server?"
-    echo -e "  Default: ${BOLD}$DEFAULT_INSTALL_DIR${NC}"
-    read -rp "  Install path (Enter for default): " INSTALL_DIR
-    INSTALL_DIR="${INSTALL_DIR:-$DEFAULT_INSTALL_DIR}"
-  else
-    INSTALL_DIR="$DEFAULT_INSTALL_DIR"
-    info "Installing to $INSTALL_DIR"
-  fi
+  info "Where to install the MCP server?"
+  echo -e "  Default: ${BOLD}$DEFAULT_INSTALL_DIR${NC}"
+  read -rp "  Install path (Enter for default): " INSTALL_DIR
+  INSTALL_DIR="${INSTALL_DIR:-$DEFAULT_INSTALL_DIR}"
 
   # Expand ~ if user typed it
   INSTALL_DIR="${INSTALL_DIR/#\~/$HOME}"
 
   if [ -d "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/index.js" ]; then
     success "MCP server already exists at $INSTALL_DIR"
-
-    if [ "$IS_INTERACTIVE" = true ]; then
-      read -rp "  Update to latest version? (y/N): " UPDATE
-    else
-      UPDATE="y"
-      info "Auto-updating to latest version..."
-    fi
-
+    read -rp "  Update to latest version? (y/N): " UPDATE
     if [[ "$UPDATE" =~ ^[Yy]$ ]]; then
       info "Updating..."
       cd "$INSTALL_DIR"
@@ -206,68 +122,30 @@ collect_env() {
   echo ""
 
   # API URL
-  API_URL="${ARG_API_URL:-}"
-  if [ -z "$API_URL" ]; then
-    prompt_input "BUILDERX_API_URL" "https://api.storecake.io" API_URL ""
-  fi
+  read -rp "  BUILDERX_API_URL [https://api.storecake.io]: " API_URL
   API_URL="${API_URL:-https://api.storecake.io}"
 
   # Token
-  TOKEN="${ARG_TOKEN:-}"
-  if [ -z "$TOKEN" ]; then
-    if [ "$IS_INTERACTIVE" = true ]; then
-      while [ -z "$TOKEN" ]; do
-        read -rp "  BUILDERX_TOKEN (JWT token): " TOKEN
-        if [ -z "$TOKEN" ]; then
-          warn "Token is required. Get it from BuilderX dashboard."
-        fi
-      done
-    else
-      error "Token is required. Use: --token YOUR_TOKEN"
-      echo ""
-      print_usage
-      exit 1
+  while [ -z "$TOKEN" ]; do
+    read -rp "  BUILDERX_TOKEN (JWT token): " TOKEN
+    if [ -z "$TOKEN" ]; then
+      warn "Token is required. Get it from BuilderX dashboard."
     fi
-  fi
+  done
 
   # Site ID
-  SITE_ID="${ARG_SITE_ID:-}"
-  if [ -z "$SITE_ID" ]; then
-    if [ "$IS_INTERACTIVE" = true ]; then
-      while [ -z "$SITE_ID" ]; do
-        read -rp "  BUILDERX_SITE_ID: " SITE_ID
-        if [ -z "$SITE_ID" ]; then
-          warn "Site ID is required."
-        fi
-      done
-    else
-      error "Site ID is required. Use: --site-id YOUR_SITE_ID"
-      echo ""
-      print_usage
-      exit 1
+  while [ -z "$SITE_ID" ]; do
+    read -rp "  BUILDERX_SITE_ID: " SITE_ID
+    if [ -z "$SITE_ID" ]; then
+      warn "Site ID is required."
     fi
-  fi
+  done
 
   echo ""
   success "Configuration:"
   echo "  API URL : $API_URL"
   echo "  Token   : ${TOKEN:0:20}..."
   echo "  Site ID : $SITE_ID"
-}
-
-print_usage() {
-  echo "Usage:"
-  echo "  Interactive:  ./install.sh"
-  echo "  Non-interactive:"
-  echo "    curl -fsSL <url>/install.sh | bash -s -- --token TOKEN --site-id SITE_ID [options]"
-  echo ""
-  echo "Options:"
-  echo "  --api-url URL     API URL (default: https://api.storecake.io)"
-  echo "  --token TOKEN     JWT Bearer token (required)"
-  echo "  --site-id ID      Site ID (required)"
-  echo "  --ide IDE         IDE to configure: claude, cursor, windsurf, augment, all (default: all)"
-  echo "  --dir PATH        Install directory (default: ~/.builderx-cms-mcp)"
-  echo "  --uninstall       Remove MCP server and IDE configs"
 }
 
 # ── IDE Configuration ──
@@ -285,23 +163,28 @@ configure_claude_code() {
   else
     # Fallback: write to ~/.claude.json
     CLAUDE_CONFIG="$HOME/.claude.json"
-    if [ -f "$CLAUDE_CONFIG" ] && [ -s "$CLAUDE_CONFIG" ]; then
-      # Use node to merge config
-      node -e "
-        const fs = require('fs');
-        const config = JSON.parse(fs.readFileSync('$CLAUDE_CONFIG', 'utf8'));
-        if (!config.mcpServers) config.mcpServers = {};
-        config.mcpServers['builderx-cms'] = {
-          command: 'node',
-          args: ['$MCP_INDEX'],
-          env: {
-            BUILDERX_API_URL: '$API_URL',
-            BUILDERX_TOKEN: '$TOKEN',
-            BUILDERX_SITE_ID: '$SITE_ID'
-          }
-        };
-        fs.writeFileSync('$CLAUDE_CONFIG', JSON.stringify(config, null, 2));
-      "
+    if [ -f "$CLAUDE_CONFIG" ]; then
+      # Check if file has content
+      if [ -s "$CLAUDE_CONFIG" ]; then
+        # Use node to merge config
+        node -e "
+          const fs = require('fs');
+          const config = JSON.parse(fs.readFileSync('$CLAUDE_CONFIG', 'utf8'));
+          if (!config.mcpServers) config.mcpServers = {};
+          config.mcpServers['builderx-cms'] = {
+            command: 'node',
+            args: ['$MCP_INDEX'],
+            env: {
+              BUILDERX_API_URL: '$API_URL',
+              BUILDERX_TOKEN: '$TOKEN',
+              BUILDERX_SITE_ID: '$SITE_ID'
+            }
+          };
+          fs.writeFileSync('$CLAUDE_CONFIG', JSON.stringify(config, null, 2));
+        "
+      else
+        write_claude_config
+      fi
     else
       write_claude_config
     fi
@@ -310,7 +193,6 @@ configure_claude_code() {
 }
 
 write_claude_config() {
-  CLAUDE_CONFIG="$HOME/.claude.json"
   cat > "$CLAUDE_CONFIG" << JSONEOF
 {
   "mcpServers": {
@@ -326,6 +208,57 @@ write_claude_config() {
   }
 }
 JSONEOF
+}
+
+configure_claude_desktop() {
+  info "Configuring Claude Desktop..."
+
+  # macOS
+  CLAUDE_DESKTOP_DIR="$HOME/Library/Application Support/Claude"
+  # Linux
+  if [ ! -d "$CLAUDE_DESKTOP_DIR" ]; then
+    CLAUDE_DESKTOP_DIR="$HOME/.config/Claude"
+  fi
+
+  mkdir -p "$CLAUDE_DESKTOP_DIR"
+  CLAUDE_DESKTOP_CONFIG="$CLAUDE_DESKTOP_DIR/claude_desktop_config.json"
+
+  if [ -f "$CLAUDE_DESKTOP_CONFIG" ] && [ -s "$CLAUDE_DESKTOP_CONFIG" ]; then
+    node -e "
+      const fs = require('fs');
+      const config = JSON.parse(fs.readFileSync('$CLAUDE_DESKTOP_CONFIG', 'utf8'));
+      if (!config.mcpServers) config.mcpServers = {};
+      config.mcpServers['builderx-cms'] = {
+        command: 'node',
+        args: ['$MCP_INDEX'],
+        env: {
+          BUILDERX_API_URL: '$API_URL',
+          BUILDERX_TOKEN: '$TOKEN',
+          BUILDERX_SITE_ID: '$SITE_ID'
+        }
+      };
+      fs.writeFileSync('$CLAUDE_DESKTOP_CONFIG', JSON.stringify(config, null, 2));
+    "
+  else
+    cat > "$CLAUDE_DESKTOP_CONFIG" << JSONEOF
+{
+  "mcpServers": {
+    "builderx-cms": {
+      "command": "node",
+      "args": ["$MCP_INDEX"],
+      "env": {
+        "BUILDERX_API_URL": "$API_URL",
+        "BUILDERX_TOKEN": "$TOKEN",
+        "BUILDERX_SITE_ID": "$SITE_ID"
+      }
+    }
+  }
+}
+JSONEOF
+  fi
+
+  success "Claude Desktop configured ($CLAUDE_DESKTOP_CONFIG)"
+  warn "Restart Claude Desktop to activate"
 }
 
 configure_cursor() {
@@ -450,34 +383,18 @@ JSONEOF
   warn "Open VS Code > Cmd+Shift+P > 'Augment: Edit MCP Settings' and paste the config above"
 }
 
-# ── IDE Selection ──
+# ── IDE Selection Menu ──
 
 select_ides() {
-  # If IDE specified via CLI arg
-  if [ -n "$ARG_IDE" ]; then
-    apply_ide_choice "$ARG_IDE"
-    return
-  fi
-
-  # Non-interactive: default to all
-  if [ "$IS_INTERACTIVE" = false ]; then
-    info "Configuring all IDEs (use --ide to select specific ones)"
-    configure_claude_code
-    configure_cursor
-    configure_windsurf
-    configure_augment
-    return
-  fi
-
-  # Interactive menu
   echo ""
   echo -e "${BOLD}── Select IDE/Tool to configure ──${NC}"
   echo ""
-  echo "  1) Claude Code"
-  echo "  2) Cursor"
-  echo "  3) Windsurf"
-  echo "  4) Augment (VS Code)"
-  echo "  5) All of the above"
+  echo "  1) Claude Desktop"
+  echo "  2) Claude Code (CLI)"
+  echo "  3) Cursor"
+  echo "  4) Windsurf"
+  echo "  5) Augment (VS Code)"
+  echo "  6) All of the above"
   echo "  0) Skip (manual setup later)"
   echo ""
   read -rp "  Choose (comma-separated, e.g. 1,2): " IDE_CHOICE
@@ -487,11 +404,13 @@ select_ides() {
   for choice in "${CHOICES[@]}"; do
     choice=$(echo "$choice" | tr -d ' ')
     case "$choice" in
-      1) configure_claude_code ;;
-      2) configure_cursor ;;
-      3) configure_windsurf ;;
-      4) configure_augment ;;
-      5)
+      1) configure_claude_desktop ;;
+      2) configure_claude_code ;;
+      3) configure_cursor ;;
+      4) configure_windsurf ;;
+      5) configure_augment ;;
+      6)
+        configure_claude_desktop
         configure_claude_code
         configure_cursor
         configure_windsurf
@@ -501,25 +420,6 @@ select_ides() {
       *) warn "Unknown option: $choice" ;;
     esac
   done
-}
-
-apply_ide_choice() {
-  local ide="$1"
-  case "$ide" in
-    claude)   configure_claude_code ;;
-    cursor)   configure_cursor ;;
-    windsurf) configure_windsurf ;;
-    augment)  configure_augment ;;
-    all)
-      configure_claude_code
-      configure_cursor
-      configure_windsurf
-      configure_augment
-      ;;
-    *)
-      warn "Unknown IDE: $ide. Options: claude, cursor, windsurf, augment, all"
-      ;;
-  esac
 }
 
 # ── Verify installation ──
@@ -572,11 +472,7 @@ uninstall() {
 
   # Remove installed directory
   if [ -d "$DEFAULT_INSTALL_DIR" ]; then
-    if [ "$IS_INTERACTIVE" = true ]; then
-      read -rp "  Remove $DEFAULT_INSTALL_DIR? (y/N): " CONFIRM
-    else
-      CONFIRM="y"
-    fi
+    read -rp "  Remove $DEFAULT_INSTALL_DIR? (y/N): " CONFIRM
     if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
       rm -rf "$DEFAULT_INSTALL_DIR"
       success "Removed $DEFAULT_INSTALL_DIR"
@@ -609,7 +505,7 @@ main() {
   print_banner
 
   # Handle --uninstall flag
-  if [ "$ARG_UNINSTALL" = true ]; then
+  if [ "${1:-}" = "--uninstall" ] || [ "${1:-}" = "uninstall" ]; then
     uninstall
     exit 0
   fi
@@ -624,4 +520,4 @@ main() {
   print_summary
 }
 
-main
+main "$@"

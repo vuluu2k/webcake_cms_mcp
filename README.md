@@ -31,7 +31,7 @@ curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/instal
 | `--token TOKEN` | JWT Bearer token | *(required)* |
 | `--site-id ID` | Target site ID | *(required)* |
 | `--api-url URL` | API base URL | `https://api.storecake.io` |
-| `--ide IDE` | IDE to configure: `claude`, `cursor`, `windsurf`, `augment`, `all` | `all` |
+| `--ide IDE` | IDE to configure: `claude-desktop`, `claude`, `cursor`, `windsurf`, `augment`, `all` | `all` |
 | `--dir PATH` | Install directory | `~/.builderx-cms-mcp` |
 | `--uninstall` | Remove MCP server and IDE configs | — |
 
@@ -76,7 +76,35 @@ npm install
 > Replace `/absolute-path/webcake_cms_mcp/index.js` below with the actual path where you cloned the repo.
 > Example: `/Users/username/webcake_cms_mcp/index.js`
 
-### 1. Claude Code (CLI)
+### 1. Claude Desktop
+
+Open Settings > Developer > Edit Config, or edit the file directly:
+
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **Linux**: `~/.config/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "builderx-cms": {
+      "command": "node",
+      "args": ["/absolute-path/webcake_cms_mcp/index.js"],
+      "env": {
+        "BUILDERX_API_URL": "https://api.storecake.io",
+        "BUILDERX_TOKEN": "<your-token>",
+        "BUILDERX_SITE_ID": "<your-site-id>"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop. The MCP tools will appear in the chat input (hammer icon).
+
+---
+
+### 2. Claude Code (CLI)
 
 Run in terminal:
 
@@ -115,7 +143,7 @@ claude mcp list
 
 ---
 
-### 2. Cursor
+### 3. Cursor
 
 Create `.cursor/mcp.json` at project root:
 
@@ -139,7 +167,7 @@ Or global config at `~/.cursor/mcp.json`. Restart Cursor and check Settings > MC
 
 ---
 
-### 3. Windsurf
+### 4. Windsurf
 
 Create `~/.codeium/windsurf/mcp_config.json`:
 
@@ -163,7 +191,7 @@ Restart Windsurf. Type `@` in Cascade chat to see `builderx-cms` tools.
 
 ---
 
-### 4. Augment (VS Code Extension)
+### 5. Augment (VS Code Extension)
 
 Open Command Palette: `Cmd + Shift + P` > **"Augment: Edit MCP Settings"**, then add:
 

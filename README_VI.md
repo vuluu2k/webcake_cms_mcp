@@ -31,7 +31,7 @@ curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/instal
 | `--token TOKEN` | JWT Bearer token | *(bắt buộc)* |
 | `--site-id ID` | ID của site | *(bắt buộc)* |
 | `--api-url URL` | URL API | `https://api.storecake.io` |
-| `--ide IDE` | IDE cần cấu hình: `claude`, `cursor`, `windsurf`, `augment`, `all` | `all` |
+| `--ide IDE` | IDE cần cấu hình: `claude-desktop`, `claude`, `cursor`, `windsurf`, `augment`, `all` | `all` |
 | `--dir PATH` | Thư mục cài đặt | `~/.builderx-cms-mcp` |
 | `--uninstall` | Gỡ MCP server và config IDE | — |
 
@@ -76,7 +76,35 @@ npm install
 > Thay `/đường-dẫn-tuyệt-đối/webcake_cms_mcp/index.js` bằng đường dẫn thực tế nơi bạn đã clone repo.
 > Ví dụ: `/Users/username/webcake_cms_mcp/index.js`
 
-### 1. Claude Code (CLI)
+### 1. Claude Desktop
+
+Mở Settings > Developer > Edit Config, hoặc sửa file trực tiếp:
+
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **Linux**: `~/.config/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "builderx-cms": {
+      "command": "node",
+      "args": ["/đường-dẫn-tuyệt-đối/webcake_cms_mcp/index.js"],
+      "env": {
+        "BUILDERX_API_URL": "https://api.storecake.io",
+        "BUILDERX_TOKEN": "<token-của-bạn>",
+        "BUILDERX_SITE_ID": "<site-id-của-bạn>"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop. Các MCP tools sẽ xuất hiện trong chat input (icon búa).
+
+---
+
+### 2. Claude Code (CLI)
 
 Chạy lệnh sau trong terminal:
 
@@ -115,7 +143,7 @@ claude mcp list
 
 ---
 
-### 2. Cursor
+### 3. Cursor
 
 **Bước 1:** Mở Cursor Settings: `Cmd + ,` (Mac) hoặc `Ctrl + ,` (Windows/Linux)
 
@@ -147,7 +175,7 @@ Hoặc cấu hình global tại `~/.cursor/mcp.json`.
 
 ---
 
-### 3. Windsurf
+### 4. Windsurf
 
 **Bước 1:** Mở Windsurf Settings: `Cmd + ,` (Mac) hoặc `Ctrl + ,` (Windows/Linux)
 
@@ -177,7 +205,7 @@ Hoặc cấu hình global tại `~/.cursor/mcp.json`.
 
 ---
 
-### 4. Augment (VS Code Extension)
+### 5. Augment (VS Code Extension)
 
 **Bước 1:** Cài extension **Augment** từ VS Code Marketplace
 
