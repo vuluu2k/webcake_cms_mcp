@@ -157,6 +157,20 @@ export class WebcakeCmsApi {
     return this.request("POST", `/api/v1/dashboard/site/${this.siteId}/update_site`, { body: { settings: merged } });
   }
 
+  // ── Collections ──
+
+  listCollections(query) {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/db_collections`, { query });
+  }
+
+  getCollection(id) {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/db_collections/${id}`);
+  }
+
+  queryCollectionRecords(tableName, query) {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/db_collections/collections/${tableName}/records`, { query });
+  }
+
   // ── Blog Articles ──
 
   listArticles(query) {
