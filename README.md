@@ -1,3 +1,5 @@
+**🌐 [Tiếng Việt](README_VI.md)** | English
+
 # WebCake CMS MCP Server
 
 MCP server exposing WebCake CMS features for AI agents.

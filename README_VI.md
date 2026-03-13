@@ -1,3 +1,5 @@
+**🌐 [English](README.md)** | Tiếng Việt
+
 # WebCake CMS MCP Server
 
 MCP server cung cấp các tính năng CMS của WebCake cho AI agent sử dụng.
