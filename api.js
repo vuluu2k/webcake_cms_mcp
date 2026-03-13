@@ -138,8 +138,15 @@ export class BuilderxCmsApi {
     return this.request("GET", `/api/v1/site/${this.siteId}/global_sections`);
   }
 
-  updateSiteSettings(settings) {
-    return this.request("POST", `/api/v1/dashboard/site/${this.siteId}/update_site`, { body: { settings } });
+  getSite() {
+    return this.request("GET", `/api/v1/site/${this.siteId}/`);
+  }
+
+  async updateSiteSettings(newSettings) {
+    const siteRes = await this.getSite();
+    const currentSettings = siteRes?.data?.settings || {};
+    const merged = { ...currentSettings, ...newSettings };
+    return this.request("POST", `/api/v1/dashboard/site/${this.siteId}/update_site`, { body: { settings: merged } });
   }
 
   // ── Blog Articles ──

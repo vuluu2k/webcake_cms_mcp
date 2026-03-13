@@ -32,23 +32,23 @@ async function handle(fn) {
 }
 
 // ═══════════════════════════════════════════
-// Prompts — dạy AI cách viết code CMS
+// Prompts — teach AI how to write CMS code
 // ═══════════════════════════════════════════
 
 server.prompt(
   "http_function_guide",
-  "Hướng dẫn cách viết HTTP function trong BuilderX CMS",
+  "Guide for writing HTTP functions in BuilderX CMS",
   () => ({
     messages: [
       {
         role: "user",
         content: {
           type: "text",
-          text: `# Hướng dẫn viết HTTP Function trong BuilderX CMS
+          text: `# HTTP Function Guide for BuilderX CMS
 
-## Cú pháp
+## Syntax
 
-File http_function chứa các hàm backend JavaScript. Mỗi hàm được export theo format:
+The http_function file contains backend JavaScript functions. Each function is exported with the format:
 
 \`\`\`javascript
 export const [method]_[FunctionName] = (request) => {
@@ -57,47 +57,47 @@ export const [method]_[FunctionName] = (request) => {
 }
 \`\`\`
 
-## Quy tắc đặt tên
-- Method: viết thường (get, post, put, patch, delete)
+## Naming Rules
+- Method: lowercase (get, post, put, patch, delete)
 - FunctionName: PascalCase
-- Ví dụ: get_Products, post_CreateOrder, put_UpdateUser, delete_RemoveItem
+- Examples: get_Products, post_CreateOrder, put_UpdateUser, delete_RemoveItem
 
 ## Request object
 
 \`\`\`javascript
 export const get_Example = (request) => {
-  request.params    // Object - query params hoặc body params
-  request.customer  // Object - thông tin customer đang đăng nhập
+  request.params    // Object - query params or body params
+  request.customer  // Object - logged-in customer info
                     //   { id, name, email, first_name, last_name, phone_number, avatar }
-  request.account   // Object - thông tin account (admin)
+  request.account   // Object - admin account info
                     //   { id, name, email, first_name, last_name, phone_number, avatar }
-  request.data      // Object - toàn bộ request params (bao gồm query string)
+  request.data      // Object - full request params (including query string)
 }
 \`\`\`
 
-## Gọi API function
+## Calling API functions
 
-Sau khi deploy, function được gọi qua:
+After deployment, functions are called via:
 \`\`\`
 GET/POST/PUT/PATCH /api/v1/{site_id}/_functions/{FunctionName}
 \`\`\`
 
-Ví dụ: \`get_Products\` → \`GET /api/v1/{site_id}/_functions/Products\`
+Example: \`get_Products\` → \`GET /api/v1/{site_id}/_functions/Products\`
 
-## Sử dụng webcake-fn SDK
+## Using webcake-fn SDK
 
 \`\`\`javascript
 const apiClient = WebCakeFn.api
-// Gọi function từ frontend
+// Call function from frontend
 apiClient.get_Products({ category: "shoes" })
 apiClient.post_CreateOrder({ items: [...] })
 \`\`\`
 
-## Sử dụng webcake-data (Database SDK)
+## Using webcake-data (Database SDK)
 
-HTTP function được tích hợp sẵn package \`webcake-data\` — SDK truy vấn database theo kiểu MongoDB.
+HTTP functions have the \`webcake-data\` package built-in — a MongoDB-style database query SDK.
 
-### Khởi tạo (trong http_function không cần truyền config, đã được cấu hình sẵn)
+### Initialization (no config needed inside http_function, already pre-configured)
 
 \`\`\`javascript
 import { DBConnection } from 'webcake-data';
@@ -105,7 +105,7 @@ import { DBConnection } from 'webcake-data';
 const db = new DBConnection();
 \`\`\`
 
-### Tạo model và CRUD
+### Model creation and CRUD
 
 \`\`\`javascript
 const User = db.model('users');
@@ -113,7 +113,7 @@ const User = db.model('users');
 // Create
 const user = await User.create({ name: 'John', email: 'john@example.com', age: 30 });
 
-// Insert nhiều
+// Insert many
 await User.insertMany([{ name: 'A' }, { name: 'B' }]);
 
 // Find
@@ -121,7 +121,7 @@ const users = await User.find({ active: true }).exec();
 const user = await User.findOne({ email: 'john@example.com' });
 const userById = await User.findById('uuid-here');
 
-// findOne/findById với options
+// findOne/findById with options
 const user = await User.findOne({ email: 'john@example.com' }, {
   select: ['id', 'name', 'email'],
   sort: { inserted_at: -1 },
@@ -143,7 +143,7 @@ const count = await User.countDocuments({ active: true });
 const exists = await User.exists({ email: 'john@example.com' });
 \`\`\`
 
-### Query nâng cao (QueryBuilder)
+### Advanced queries (QueryBuilder)
 
 \`\`\`javascript
 const results = await User.find()
@@ -175,18 +175,18 @@ const usersWithPosts = await User.find()
 \`\`\`
 
 ### Query operators
-- \`where(field, operator, value)\` hoặc \`where(obj)\`
+- \`where(field, operator, value)\` or \`where(obj)\`
 - \`eq\`, \`ne\`, \`gt\`, \`gte\`, \`lt\`, \`lte\`
 - \`in\`, \`nin\`, \`between\`, \`like\`
 - \`sort\`, \`limit\`, \`skip\`, \`select\`, \`populate\`
 
-## Ví dụ thực tế
+## Practical examples
 
 \`\`\`javascript
 import { DBConnection } from 'webcake-data';
 const db = new DBConnection();
 
-// Lấy danh sách sản phẩm từ collection tùy chỉnh
+// Get products from a custom collection
 const Product = db.model('my_products');
 
 export const get_ProductsByCategory = async (request) => {
@@ -200,7 +200,7 @@ export const get_ProductsByCategory = async (request) => {
   return { products, total, page };
 }
 
-// Tạo đơn hàng với dữ liệu tùy chỉnh
+// Create order with custom data
 const Order = db.model('custom_orders');
 
 export const post_CreateOrder = async (request) => {
@@ -217,7 +217,7 @@ export const post_CreateOrder = async (request) => {
   return { order_id: order.id, status: 'created' };
 }
 
-// Webhook nhận callback
+// Webhook callback handler
 export const post_PaymentWebhook = async (request) => {
   const { transaction_id, status } = request.params;
   await Order.updateOne({ transaction_id }, { payment_status: status });
@@ -227,7 +227,7 @@ export const post_PaymentWebhook = async (request) => {
 
 ## Cron Jobs
 
-File jobs_config (JSON) cấu hình các hàm chạy tự động:
+The jobs_config file (JSON) configures auto-running functions:
 
 \`\`\`json
 {
@@ -235,7 +235,7 @@ File jobs_config (JSON) cấu hình các hàm chạy tự động:
     {
       "functionLocation": "backend/http_function",
       "functionName": "syncInventory",
-      "description": "Đồng bộ tồn kho mỗi ngày lúc 2h sáng",
+      "description": "Sync inventory daily at 2am",
       "executionConfig": {
         "cronExpression": "0 2 * * *"
       }
@@ -243,7 +243,7 @@ File jobs_config (JSON) cấu hình các hàm chạy tự động:
     {
       "functionLocation": "backend/http_function",
       "functionName": "sendDailyReport",
-      "description": "Gửi báo cáo lúc 8h sáng",
+      "description": "Send report at 8am",
       "executionConfig": {
         "time": "08:00",
         "dayOfWeek": "Monday"
@@ -260,22 +260,22 @@ File jobs_config (JSON) cấu hình các hàm chạy tự động:
 
 server.prompt(
   "custom_code_guide",
-  "Hướng dẫn cách viết custom code cho trang (CSS/JS)",
+  "Guide for writing custom code for pages (CSS/JS)",
   () => ({
     messages: [
       {
         role: "user",
         content: {
           type: "text",
-          text: `# Hướng dẫn viết Custom Code cho trang trong BuilderX
+          text: `# Custom Code Guide for BuilderX
 
-## Cấu trúc custom code
+## Custom code structure
 
-Mỗi trang có thể chứa custom code được inject vào HTML:
+Custom code is injected into the site HTML:
 
 ### 1. code_before_head
-Chèn vào trước thẻ đóng </head>. Dùng cho:
-- Meta tags bổ sung
+Inserted before the closing </head> tag. Used for:
+- Additional meta tags
 - External CSS/fonts
 - Tracking scripts (Google Analytics, Facebook Pixel, ...)
 
@@ -288,8 +288,8 @@ Chèn vào trước thẻ đóng </head>. Dùng cho:
 \`\`\`
 
 ### 2. code_before_body
-Chèn vào trước thẻ đóng </body>. Dùng cho:
-- JavaScript chạy sau khi DOM ready
+Inserted before the closing </body> tag. Used for:
+- JavaScript that runs after DOM ready
 - Widget scripts (chat, popup, ...)
 - Custom logic
 
@@ -302,7 +302,7 @@ Chèn vào trước thẻ đóng </body>. Dùng cho:
 \`\`\`
 
 ### 3. code_custom_css
-CSS tùy chỉnh cho trang. Tự động wrap trong <style> nếu chưa có.
+Custom CSS for the site. Automatically wrapped in <style> if not already.
 
 \`\`\`css
 .hero-section {
@@ -321,67 +321,67 @@ CSS tùy chỉnh cho trang. Tự động wrap trong <style> nếu chưa có.
 \`\`\`
 
 ### 4. code_custom_javascript
-JavaScript tùy chỉnh cho trang.
+Custom JavaScript for the site.
 
 \`\`\`javascript
-// Sử dụng PubSub để giao tiếp giữa các component
+// Use PubSub for cross-component communication
 window.pubsub.subscribe('product-added', (data) => {
   console.log('Product added:', data);
 });
 
-// Sử dụng notification
+// Use notification
 window.useNotification('success', {
-  title: 'Thành công!',
-  message: 'Sản phẩm đã được thêm vào giỏ hàng'
+  title: 'Success!',
+  message: 'Product has been added to cart'
 });
 
-// Resize hình ảnh
+// Resize image
 const resized = window.resizeLink(imageUrl, 200, 200);
 // resized.webp, resized.cdn
 \`\`\`
 
-## Sử dụng webcake-fn (gọi HTTP function từ frontend)
+## Using webcake-fn (call HTTP functions from frontend)
 
-Package \`webcake-fn\` được tích hợp sẵn trong site, cho phép gọi các HTTP function backend từ custom code.
+The \`webcake-fn\` package allows calling backend HTTP functions from custom code.
 
-### Cài đặt
+### Installation
 
-Thêm CDN vào \`code_before_head\` để load webcake-fn:
+Add CDN to \`code_before_head\` to load webcake-fn:
 
 \`\`\`html
 <script src="https://cdn.jsdelivr.net/npm/webcake-fn/dist/webcake-fn.umd.min.js"></script>
 \`\`\`
 
-### Cách dùng trong custom code
+### Usage in custom code
 
-Sau khi load CDN, sử dụng \`window.api\` trong \`code_before_body\` hoặc \`code_custom_javascript\`:
+After loading CDN, use \`window.api\` in \`code_before_body\` or \`code_custom_javascript\`:
 
 \`\`\`javascript
-// window.api là instance webcake-fn, gọi trực tiếp HTTP function
+// window.api is the webcake-fn instance, call HTTP functions directly
 // Format: api.[method]_[FunctionName](params)
 
 // GET request
 const products = await api.get_ProductsByCategory({ category: 'shoes', page: 1 });
 
 // POST request
-const order = await api.post_CreateOrder({ items: [...], note: 'Giao nhanh' });
+const order = await api.post_CreateOrder({ items: [...], note: 'Express delivery' });
 
 // PUT request
-const updated = await api.put_UpdateProfile({ name: 'Tên mới' });
+const updated = await api.put_UpdateProfile({ name: 'New Name' });
 
 // DELETE request
 const deleted = await api.delete_RemoveItem({ itemId: '123' });
 \`\`\`
 
-### Quy tắc đặt tên
-- Method viết thường: \`get\`, \`post\`, \`put\`, \`delete\`
-- FunctionName khớp với tên export trong http_function backend
-- Ví dụ: backend export \`get_Products\` → frontend gọi \`api.get_Products(params)\`
+### Naming rules
+- Method in lowercase: \`get\`, \`post\`, \`put\`, \`delete\`
+- FunctionName matches the export name in http_function backend
+- Example: backend exports \`get_Products\` → frontend calls \`api.get_Products(params)\`
 
-### Kết hợp với các API khác trong custom code
+### Combining with other APIs in custom code
 
 \`\`\`javascript
-// Lấy dữ liệu từ backend function rồi hiển thị
+// Fetch data from backend function and display
 const reviews = await api.get_ProductReviews({ productId: '123' });
 const container = document.getElementById('reviews');
 container.innerHTML = reviews.map(r => \\\`
@@ -391,21 +391,21 @@ container.innerHTML = reviews.map(r => \\\`
   </div>
 \\\`).join('');
 
-// Gọi function khi click button
+// Call function on button click
 document.getElementById('submit-btn')?.addEventListener('click', async () => {
   try {
     const result = await api.post_SubmitForm({
       name: document.getElementById('name').value,
       email: document.getElementById('email').value
     });
-    window.useNotification('success', { title: 'Gửi thành công!' });
+    window.useNotification('success', { title: 'Submitted successfully!' });
   } catch (error) {
-    window.useNotification('error', { title: 'Lỗi', message: error.message });
+    window.useNotification('error', { title: 'Error', message: error.message });
   }
 });
 \`\`\`
 
-### Gọi nhiều function song song
+### Calling multiple functions in parallel
 
 \`\`\`javascript
 const [products, categories, banners] = await Promise.all([
@@ -415,29 +415,29 @@ const [products, categories, banners] = await Promise.all([
 ]);
 \`\`\`
 
-### Xử lý lỗi
+### Error handling
 
 \`\`\`javascript
 try {
   const result = await api.post_CreateOrder({ items: cartItems });
-  // result trả về trực tiếp kết quả (đã unwrap từ response.data.result)
+  // result is the direct return value (unwrapped from response.data.result)
   console.log(result);
 } catch (error) {
   if (error.message.includes('HTTP error! status: 401')) {
-    // Chưa đăng nhập
+    // Not logged in
     window.location.href = '/login';
   } else {
-    window.useNotification('error', { title: 'Lỗi', message: error.message });
+    window.useNotification('error', { title: 'Error', message: error.message });
   }
 }
 \`\`\`
 
-## Lưu ý
-- Custom code lưu trong **site settings** (áp dụng cho toàn bộ site, không theo từng page)
-- Cập nhật qua tool update_site_custom_code
-- Có thể dùng window.pubsub, window.useNotification, window.resizeLink
-- Có thể dùng \`api\` (webcake-fn) để gọi HTTP function backend
-- Có thể truy cập window.SITE_DATA, window.DATA_ORDER cho context của site`
+## Notes
+- Custom code is stored in **site settings** (applies to the entire site, not per page)
+- Update via the update_site_custom_code tool
+- Available globals: window.pubsub, window.useNotification, window.resizeLink
+- Use \`api\` (webcake-fn) to call backend HTTP functions
+- Access window.SITE_DATA, window.DATA_ORDER for site context`
         },
       },
     ],
@@ -445,23 +445,23 @@ try {
 );
 
 // ═══════════════════════════════════════════
-// CMS Files — Viết và quản lý backend code
+// CMS Files — Write and manage backend code
 // ═══════════════════════════════════════════
 
-server.tool("list_cms_files", "Liệt kê tất cả CMS files (HTTP functions, cron jobs, ...) của site", {}, () =>
+server.tool("list_cms_files", "List all CMS files (HTTP functions, cron jobs, ...) for the site", {}, () =>
   handle(() => api.listCmsFiles())
 );
 
 server.tool(
   "create_cms_file",
-  `Tạo CMS file mới. Types:
-- "http_function": backend JS function, path sẽ là "backend/http_function"
-- "jobs_config": cron job config (JSON), path là "backend/jobs.config"
-- "default": file JS/JSON tùy ý`,
+  `Create a new CMS file. Types:
+- "http_function": backend JS function, path will be "backend/http_function"
+- "jobs_config": cron job config (JSON), path is "backend/jobs.config"
+- "default": custom JS/JSON file`,
   {
-    name: z.string().describe("Tên file"),
-    content: z.string().describe("Nội dung code (JavaScript hoặc JSON)"),
-    type: z.enum(["http_function", "jobs_config", "default"]).default("default").describe("Loại file"),
+    name: z.string().describe("File name"),
+    content: z.string().describe("Code content (JavaScript or JSON)"),
+    type: z.enum(["http_function", "jobs_config", "default"]).default("default").describe("File type"),
   },
   ({ name, content, type }) =>
     handle(() => api.createCmsFile({ name, content, type_create: "backend", type }))
@@ -469,11 +469,11 @@ server.tool(
 
 server.tool(
   "update_cms_file",
-  "Cập nhật nội dung code của CMS file đã tồn tại",
+  "Update the code content of an existing CMS file",
   {
     id: z.string().describe("CMS file ID"),
-    content: z.string().describe("Nội dung code mới"),
-    name: z.string().optional().describe("Đổi tên file"),
+    content: z.string().describe("New code content"),
+    name: z.string().optional().describe("Rename file"),
   },
   ({ id, content, name }) =>
     handle(() => api.updateCmsFile(id, { content, ...(name && { name }) }))
@@ -481,31 +481,31 @@ server.tool(
 
 server.tool(
   "get_http_function",
-  "Lấy file HTTP function chính của site. Trả về nội dung code JS hiện tại để đọc/sửa",
+  "Get the main HTTP function file of the site. Returns current JS code content for reading/editing",
   {},
   () => handle(() => api.getHttpFunction())
 );
 
 server.tool(
   "update_http_function",
-  `Cập nhật file HTTP function chính. Code JS theo format:
+  `Update the main HTTP function file. JS code follows the format:
 export const [method]_[FunctionName] = (request) => { ... }
-Ví dụ: export const get_Products = (request) => { return request.params; }
-Sau khi update sẽ tự deploy lên bundle service`,
+Example: export const get_Products = (request) => { return request.params; }
+After update, it will auto-deploy to the bundle service`,
   {
-    content: z.string().describe("Toàn bộ nội dung code JS của file http_function"),
+    content: z.string().describe("Full JS code content of the http_function file"),
   },
   ({ content }) => handle(() => api.createOrUpdateHttpFunction({ content }))
 );
 
 server.tool(
   "run_function",
-  `Chạy một HTTP function đã deploy. Tên function không bao gồm prefix method.
-Ví dụ: function "get_Products" → function_name="Products", method="GET"`,
+  `Run a deployed HTTP function. Function name does not include the method prefix.
+Example: function "get_Products" → function_name="Products", method="GET"`,
   {
-    function_name: z.string().describe("Tên function (không có prefix method, ví dụ: 'Products')"),
-    method: z.enum(["GET", "POST", "PUT", "PATCH"]).default("POST").describe("HTTP method tương ứng"),
-    params: z.record(z.any()).optional().describe("Tham số truyền vào function"),
+    function_name: z.string().describe("Function name (without method prefix, e.g. 'Products')"),
+    method: z.enum(["GET", "POST", "PUT", "PATCH"]).default("POST").describe("Corresponding HTTP method"),
+    params: z.record(z.any()).optional().describe("Parameters to pass to the function"),
   },
   ({ function_name, method, params }) =>
     handle(() => api.runFunction(function_name, method, params))
@@ -513,13 +513,13 @@ Ví dụ: function "get_Products" → function_name="Products", method="GET"`,
 
 server.tool(
   "debug_function",
-  `Chạy code JS ở chế độ debug để test trước khi deploy.
-Gửi code trực tiếp, không cần save file trước.
-Response trả về kết quả thực thi và log`,
+  `Run JS code in debug mode to test before deploying.
+Send code directly, no need to save the file first.
+Response returns execution result and logs`,
   {
-    content: z.string().describe("Code JS cần debug (cùng format http_function)"),
-    function_name: z.string().describe("Tên function cần chạy trong code"),
-    params: z.record(z.any()).optional().describe("Tham số test"),
+    content: z.string().describe("JS code to debug (same format as http_function)"),
+    function_name: z.string().describe("Function name to run in the code"),
+    params: z.record(z.any()).optional().describe("Test parameters"),
   },
   ({ content, function_name, params }) =>
     handle(() => api.debugFunction({ content, functionName: function_name, params }))
@@ -527,11 +527,11 @@ Response trả về kết quả thực thi và log`,
 
 server.tool(
   "save_file_version",
-  "Lưu snapshot phiên bản của CMS file (để rollback khi cần)",
+  "Save a version snapshot of a CMS file (for rollback when needed)",
   {
     cms_file_id: z.string().describe("CMS file ID"),
-    content: z.string().describe("Nội dung cần lưu version"),
-    is_public: z.boolean().default(false).describe("Đánh dấu là version public"),
+    content: z.string().describe("Content to save as version"),
+    is_public: z.boolean().default(false).describe("Mark as public version"),
   },
   ({ cms_file_id, content, is_public }) =>
     handle(() => api.saveFileVersion({ cms_file_id, content, is_public }))
@@ -539,7 +539,7 @@ server.tool(
 
 server.tool(
   "get_file_versions",
-  "Xem lịch sử phiên bản của CMS file",
+  "View version history of a CMS file",
   {
     cms_file_id: z.string().describe("CMS file ID"),
   },
@@ -548,7 +548,7 @@ server.tool(
 
 server.tool(
   "toggle_debug_render",
-  "Bật/tắt chế độ debug render cho CMS file",
+  "Toggle debug render mode for a CMS file",
   {
     cms_file_id: z.string().describe("CMS file ID"),
   },
@@ -556,21 +556,21 @@ server.tool(
 );
 
 // ═══════════════════════════════════════════
-// Pages — Quản lý trang và custom code
+// Pages — Manage pages and custom code
 // ═══════════════════════════════════════════
 
-server.tool("list_pages", "Liệt kê tất cả trang của site", {}, () =>
+server.tool("list_pages", "List all pages of the site", {}, () =>
   handle(() => api.listPages())
 );
 
 server.tool(
   "create_page",
-  "Tạo trang mới",
+  "Create a new page",
   {
-    name: z.string().describe("Tên trang"),
-    slug: z.string().describe("URL slug (ví dụ: '/about')"),
-    type: z.string().optional().describe("Loại trang"),
-    is_homepage: z.boolean().default(false).describe("Đặt làm trang chủ"),
+    name: z.string().describe("Page name"),
+    slug: z.string().describe("URL slug (e.g. '/about')"),
+    type: z.string().optional().describe("Page type"),
+    is_homepage: z.boolean().default(false).describe("Set as homepage"),
   },
   ({ name, slug, type, is_homepage }) =>
     handle(() => api.createPage({ name, slug, type, is_homepage }))
@@ -578,29 +578,46 @@ server.tool(
 
 server.tool(
   "update_page",
-  "Cập nhật thuộc tính trang (tên, slug, settings, custom code)",
+  "Update page properties (name, slug, settings, custom code)",
   {
     page_id: z.string().describe("Page ID"),
-    name: z.string().optional().describe("Tên mới"),
-    slug: z.string().optional().describe("Slug mới"),
-    is_homepage: z.boolean().optional().describe("Đặt làm trang chủ"),
-    settings: z.record(z.any()).optional().describe("Settings trang"),
+    name: z.string().optional().describe("New name"),
+    slug: z.string().optional().describe("New slug"),
+    is_homepage: z.boolean().optional().describe("Set as homepage"),
+    settings: z.record(z.any()).optional().describe("Page settings"),
   },
   ({ page_id, ...params }) => handle(() => api.updatePage(page_id, params))
 );
 
 server.tool(
+  "get_site_custom_code",
+  "Get current custom code of the site (CSS/JS). Use to read existing code before updating, to avoid overwriting",
+  {},
+  () =>
+    handle(async () => {
+      const siteRes = await api.getSite();
+      const s = siteRes?.data?.settings || {};
+      return {
+        code_before_head: s.code_before_head || "",
+        code_before_body: s.code_before_body || "",
+        code_custom_css: s.code_custom_css || "",
+        code_custom_javascript: s.code_custom_javascript || "",
+      };
+    })
+);
+
+server.tool(
   "update_site_custom_code",
-  `Cập nhật custom code (CSS/JS) cho toàn bộ site. Lưu trong site settings, áp dụng cho mọi trang.
-- code_before_head: HTML/script chèn trước </head>
-- code_before_body: HTML/script chèn trước </body>
-- code_custom_css: CSS tùy chỉnh (tự wrap trong <style>)
-- code_custom_javascript: JavaScript tùy chỉnh`,
+  `Update custom code (CSS/JS) for the entire site. Stored in site settings, applies to all pages.
+- code_before_head: HTML/script inserted before </head>
+- code_before_body: HTML/script inserted before </body>
+- code_custom_css: Custom CSS (auto-wrapped in <style>)
+- code_custom_javascript: Custom JavaScript`,
   {
-    code_before_head: z.string().optional().describe("HTML/script chèn vào <head>"),
-    code_before_body: z.string().optional().describe("HTML/script chèn trước </body>"),
-    code_custom_css: z.string().optional().describe("CSS tùy chỉnh cho site"),
-    code_custom_javascript: z.string().optional().describe("JavaScript tùy chỉnh cho site"),
+    code_before_head: z.string().optional().describe("HTML/script to insert in <head>"),
+    code_before_body: z.string().optional().describe("HTML/script to insert before </body>"),
+    code_custom_css: z.string().optional().describe("Custom CSS for the site"),
+    code_custom_javascript: z.string().optional().describe("Custom JavaScript for the site"),
   },
   (codes) => {
     const settings = {};
@@ -613,16 +630,16 @@ server.tool(
 
 server.tool(
   "delete_page",
-  "Xóa trang",
+  "Delete a page",
   {
-    page_id: z.string().describe("Page ID cần xóa"),
+    page_id: z.string().describe("Page ID to delete"),
   },
   ({ page_id }) => handle(() => api.deletePage({ page_id }))
 );
 
 server.tool(
   "get_page_versions",
-  "Xem lịch sử phiên bản của trang",
+  "View version history of a page",
   {
     page_id: z.string().describe("Page ID"),
   },
@@ -631,27 +648,27 @@ server.tool(
 
 server.tool(
   "list_page_contents",
-  "Liệt kê nội dung đa ngôn ngữ của trang",
+  "List multi-language contents of a page",
   {
-    page_id: z.string().optional().describe("Lọc theo Page ID"),
+    page_id: z.string().optional().describe("Filter by Page ID"),
   },
   ({ page_id }) => handle(() => api.listPageContents({ page_id }))
 );
 
 server.tool(
   "update_page_content",
-  "Tạo/cập nhật nội dung trang cho một ngôn ngữ",
+  "Create/update page content for a specific language",
   {
     page_id: z.string().describe("Page ID"),
-    language_code: z.string().describe("Mã ngôn ngữ (vd: 'en', 'vi')"),
-    content: z.record(z.any()).describe("Nội dung trang"),
+    language_code: z.string().describe("Language code (e.g. 'en', 'vi')"),
+    content: z.record(z.any()).describe("Page content"),
     meta_tags: z.array(z.record(z.any())).optional().describe("SEO meta tags"),
   },
   ({ page_id, language_code, content, meta_tags }) =>
     handle(() => api.updatePageContent({ page_id, language_code, content, meta_tags }))
 );
 
-server.tool("list_global_sections", "Liệt kê các global section dùng chung", {}, () =>
+server.tool("list_global_sections", "List reusable global sections", {}, () =>
   handle(() => api.listGlobalSections())
 );
 
@@ -661,11 +678,11 @@ server.tool("list_global_sections", "Liệt kê các global section dùng chung"
 
 server.tool(
   "list_articles",
-  "Liệt kê bài viết blog",
+  "List blog articles with filtering",
   {
-    page: z.number().optional().describe("Số trang"),
-    limit: z.number().optional().describe("Số bài/trang"),
-    category_id: z.string().optional().describe("Lọc theo danh mục"),
+    page: z.number().optional().describe("Page number"),
+    limit: z.number().optional().describe("Items per page"),
+    category_id: z.string().optional().describe("Filter by category"),
   },
   ({ page, limit, category_id }) =>
     handle(() => api.listArticles({ page, limit, category_id }))
@@ -673,7 +690,7 @@ server.tool(
 
 server.tool(
   "get_article",
-  "Lấy chi tiết bài viết theo ID",
+  "Get article details by ID",
   {
     id: z.string().describe("Article ID"),
   },
@@ -682,39 +699,39 @@ server.tool(
 
 server.tool(
   "create_article",
-  "Tạo bài viết blog mới",
+  "Create a new blog article",
   {
-    name: z.string().describe("Tiêu đề bài viết"),
+    name: z.string().describe("Article title"),
     slug: z.string().describe("URL slug"),
-    content: z.string().describe("Nội dung HTML"),
-    summary: z.string().optional().describe("Tóm tắt"),
-    category_id: z.string().optional().describe("ID danh mục"),
+    content: z.string().describe("HTML content"),
+    summary: z.string().optional().describe("Summary"),
+    category_id: z.string().optional().describe("Category ID"),
     tags: z.array(z.string()).optional().describe("Tags"),
-    images: z.array(z.string()).optional().describe("URLs hình ảnh"),
-    is_hidden: z.boolean().default(false).describe("Ẩn khỏi public"),
+    images: z.array(z.string()).optional().describe("Image URLs"),
+    is_hidden: z.boolean().default(false).describe("Hide from public"),
   },
   (params) => handle(() => api.createArticle(params))
 );
 
 server.tool(
   "update_article",
-  "Cập nhật bài viết blog",
+  "Update a blog article",
   {
     id: z.string().describe("Article ID"),
-    name: z.string().optional().describe("Tiêu đề mới"),
-    slug: z.string().optional().describe("Slug mới"),
-    content: z.string().optional().describe("Nội dung HTML mới"),
-    summary: z.string().optional().describe("Tóm tắt mới"),
-    category_id: z.string().optional().describe("ID danh mục"),
+    name: z.string().optional().describe("New title"),
+    slug: z.string().optional().describe("New slug"),
+    content: z.string().optional().describe("New HTML content"),
+    summary: z.string().optional().describe("New summary"),
+    category_id: z.string().optional().describe("Category ID"),
     tags: z.array(z.string()).optional().describe("Tags"),
-    is_hidden: z.boolean().optional().describe("Ẩn khỏi public"),
+    is_hidden: z.boolean().optional().describe("Hide from public"),
   },
   ({ id, ...params }) => handle(() => api.updateArticle(id, params))
 );
 
 server.tool(
   "delete_article",
-  "Xóa bài viết blog",
+  "Delete a blog article",
   {
     id: z.string().describe("Article ID"),
   },
@@ -727,10 +744,10 @@ server.tool(
 
 server.tool(
   "find_customer",
-  "Tìm khách hàng theo ID, số điện thoại, hoặc email",
+  "Find a customer by ID, phone number, or email",
   {
-    by: z.enum(["id", "phone", "email"]).describe("Tìm theo trường nào"),
-    value: z.string().describe("Giá trị tìm kiếm"),
+    by: z.enum(["id", "phone", "email"]).describe("Search field"),
+    value: z.string().describe("Search value"),
   },
   ({ by, value }) =>
     handle(() => {
@@ -748,11 +765,11 @@ server.tool(
 
 server.tool(
   "send_mail",
-  "Gửi email qua CMS automation",
+  "Send email via CMS automation",
   {
-    to: z.string().describe("Email người nhận"),
-    subject: z.string().describe("Tiêu đề email"),
-    body: z.string().describe("Nội dung email (hỗ trợ HTML)"),
+    to: z.string().describe("Recipient email"),
+    subject: z.string().describe("Email subject"),
+    body: z.string().describe("Email body (supports HTML)"),
   },
   (params) => handle(() => api.sendMail(params))
 );
