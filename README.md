@@ -156,7 +156,7 @@ Restart VS Code.
 - `list_pages` - List all pages
 - `create_page` - Create a page
 - `update_page` - Update page properties
-- `update_page_custom_code` - Write CSS/JS custom code for a page
+- `update_site_custom_code` - Write CSS/JS custom code for the entire site
 - `delete_page` - Delete a page
 - `get_page_versions` - Page version history
 - `list_page_contents` - Multi-language contents

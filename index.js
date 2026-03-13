@@ -93,29 +93,134 @@ apiClient.get_Products({ category: "shoes" })
 apiClient.post_CreateOrder({ items: [...] })
 \`\`\`
 
+## Sử dụng webcake-data (Database SDK)
+
+HTTP function được tích hợp sẵn package \`webcake-data\` — SDK truy vấn database theo kiểu MongoDB.
+
+### Khởi tạo (trong http_function không cần truyền config, đã được cấu hình sẵn)
+
+\`\`\`javascript
+import { DBConnection } from 'webcake-data';
+
+const db = new DBConnection();
+\`\`\`
+
+### Tạo model và CRUD
+
+\`\`\`javascript
+const User = db.model('users');
+
+// Create
+const user = await User.create({ name: 'John', email: 'john@example.com', age: 30 });
+
+// Insert nhiều
+await User.insertMany([{ name: 'A' }, { name: 'B' }]);
+
+// Find
+const users = await User.find({ active: true }).exec();
+const user = await User.findOne({ email: 'john@example.com' });
+const userById = await User.findById('uuid-here');
+
+// findOne/findById với options
+const user = await User.findOne({ email: 'john@example.com' }, {
+  select: ['id', 'name', 'email'],
+  sort: { inserted_at: -1 },
+  populate: { field: 'profile', table: 'profiles', referenceField: 'user_id', select: 'avatar bio' }
+});
+
+// Update
+await User.updateOne({ email: 'john@example.com' }, { age: 31 });
+await User.findByIdAndUpdate('uuid', { age: 32 });
+await User.updateMany({ active: false }, { active: true });
+
+// Delete
+await User.deleteOne({ email: 'john@example.com' });
+await User.findByIdAndDelete('uuid');
+await User.deleteMany({ active: false });
+
+// Count & Exists
+const count = await User.countDocuments({ active: true });
+const exists = await User.exists({ email: 'john@example.com' });
+\`\`\`
+
+### Query nâng cao (QueryBuilder)
+
+\`\`\`javascript
+const results = await User.find()
+  .where('age').gte(25).lte(40)
+  .where('active', true)
+  .in('role', ['admin', 'editor'])
+  .like('email', '%@example.com')
+  .sort({ age: -1, name: 1 })
+  .limit(20)
+  .skip(10)
+  .select('name email age')
+  .exec();
+\`\`\`
+
+### Populate (joins)
+
+\`\`\`javascript
+const usersWithPosts = await User.find()
+  .populate({
+    field: 'posts',
+    table: 'posts',
+    referenceField: 'user_id',
+    select: 'title content',
+    where: { published: true },
+    sort: { inserted_at: -1 },
+    limit: 5
+  })
+  .exec();
+\`\`\`
+
+### Query operators
+- \`where(field, operator, value)\` hoặc \`where(obj)\`
+- \`eq\`, \`ne\`, \`gt\`, \`gte\`, \`lt\`, \`lte\`
+- \`in\`, \`nin\`, \`between\`, \`like\`
+- \`sort\`, \`limit\`, \`skip\`, \`select\`, \`populate\`
+
 ## Ví dụ thực tế
 
 \`\`\`javascript
-// Lấy danh sách sản phẩm theo category
-export const get_ProductsByCategory = (request) => {
+import { DBConnection } from 'webcake-data';
+const db = new DBConnection();
+
+// Lấy danh sách sản phẩm từ collection tùy chỉnh
+const Product = db.model('my_products');
+
+export const get_ProductsByCategory = async (request) => {
   const { category, page = 1, limit = 10 } = request.params;
-  // logic xử lý...
-  return { products: [], total: 0 };
+  const products = await Product.find({ category })
+    .sort({ inserted_at: -1 })
+    .limit(limit)
+    .skip((page - 1) * limit)
+    .exec();
+  const total = await Product.countDocuments({ category });
+  return { products, total, page };
 }
 
-// Tạo đơn hàng
-export const post_CreateOrder = (request) => {
-  const { items, shipping_address } = request.params;
+// Tạo đơn hàng với dữ liệu tùy chỉnh
+const Order = db.model('custom_orders');
+
+export const post_CreateOrder = async (request) => {
+  const { items, note } = request.params;
   const customer = request.customer;
   if (!customer?.id) return { error: "Unauthorized" };
-  // logic tạo đơn...
-  return { order_id: "...", status: "created" };
+  const order = await Order.create({
+    customer_id: customer.id,
+    customer_name: customer.name,
+    items,
+    note,
+    status: 'pending'
+  });
+  return { order_id: order.id, status: 'created' };
 }
 
 // Webhook nhận callback
-export const post_PaymentWebhook = (request) => {
+export const post_PaymentWebhook = async (request) => {
   const { transaction_id, status } = request.params;
-  // xử lý callback thanh toán...
+  await Order.updateOne({ transaction_id }, { payment_status: status });
   return { received: true };
 }
 \`\`\`
@@ -235,10 +340,103 @@ const resized = window.resizeLink(imageUrl, 200, 200);
 // resized.webp, resized.cdn
 \`\`\`
 
+## Sử dụng webcake-fn (gọi HTTP function từ frontend)
+
+Package \`webcake-fn\` được tích hợp sẵn trong site, cho phép gọi các HTTP function backend từ custom code.
+
+### Cài đặt
+
+Thêm CDN vào \`code_before_head\` để load webcake-fn:
+
+\`\`\`html
+<script src="https://cdn.jsdelivr.net/npm/webcake-fn/dist/webcake-fn.umd.min.js"></script>
+\`\`\`
+
+### Cách dùng trong custom code
+
+Sau khi load CDN, sử dụng \`window.api\` trong \`code_before_body\` hoặc \`code_custom_javascript\`:
+
+\`\`\`javascript
+// window.api là instance webcake-fn, gọi trực tiếp HTTP function
+// Format: api.[method]_[FunctionName](params)
+
+// GET request
+const products = await api.get_ProductsByCategory({ category: 'shoes', page: 1 });
+
+// POST request
+const order = await api.post_CreateOrder({ items: [...], note: 'Giao nhanh' });
+
+// PUT request
+const updated = await api.put_UpdateProfile({ name: 'Tên mới' });
+
+// DELETE request
+const deleted = await api.delete_RemoveItem({ itemId: '123' });
+\`\`\`
+
+### Quy tắc đặt tên
+- Method viết thường: \`get\`, \`post\`, \`put\`, \`delete\`
+- FunctionName khớp với tên export trong http_function backend
+- Ví dụ: backend export \`get_Products\` → frontend gọi \`api.get_Products(params)\`
+
+### Kết hợp với các API khác trong custom code
+
+\`\`\`javascript
+// Lấy dữ liệu từ backend function rồi hiển thị
+const reviews = await api.get_ProductReviews({ productId: '123' });
+const container = document.getElementById('reviews');
+container.innerHTML = reviews.map(r => \\\`
+  <div class="review">
+    <strong>\\\${r.author}</strong>
+    <p>\\\${r.content}</p>
+  </div>
+\\\`).join('');
+
+// Gọi function khi click button
+document.getElementById('submit-btn')?.addEventListener('click', async () => {
+  try {
+    const result = await api.post_SubmitForm({
+      name: document.getElementById('name').value,
+      email: document.getElementById('email').value
+    });
+    window.useNotification('success', { title: 'Gửi thành công!' });
+  } catch (error) {
+    window.useNotification('error', { title: 'Lỗi', message: error.message });
+  }
+});
+\`\`\`
+
+### Gọi nhiều function song song
+
+\`\`\`javascript
+const [products, categories, banners] = await Promise.all([
+  api.get_Products({ limit: 10 }),
+  api.get_Categories(),
+  api.get_Banners({ position: 'homepage' })
+]);
+\`\`\`
+
+### Xử lý lỗi
+
+\`\`\`javascript
+try {
+  const result = await api.post_CreateOrder({ items: cartItems });
+  // result trả về trực tiếp kết quả (đã unwrap từ response.data.result)
+  console.log(result);
+} catch (error) {
+  if (error.message.includes('HTTP error! status: 401')) {
+    // Chưa đăng nhập
+    window.location.href = '/login';
+  } else {
+    window.useNotification('error', { title: 'Lỗi', message: error.message });
+  }
+}
+\`\`\`
+
 ## Lưu ý
-- Custom code được lưu trong page settings, cập nhật qua update_page tool
-- Truyền vào field "settings" với các key: code_before_head, code_before_body, code_custom_css, code_custom_javascript
+- Custom code lưu trong **site settings** (áp dụng cho toàn bộ site, không theo từng page)
+- Cập nhật qua tool update_site_custom_code
 - Có thể dùng window.pubsub, window.useNotification, window.resizeLink
+- Có thể dùng \`api\` (webcake-fn) để gọi HTTP function backend
 - Có thể truy cập window.SITE_DATA, window.DATA_ORDER cho context của site`
         },
       },
@@ -392,25 +590,24 @@ server.tool(
 );
 
 server.tool(
-  "update_page_custom_code",
-  `Cập nhật custom code (CSS/JS) cho một trang. Các field:
+  "update_site_custom_code",
+  `Cập nhật custom code (CSS/JS) cho toàn bộ site. Lưu trong site settings, áp dụng cho mọi trang.
 - code_before_head: HTML/script chèn trước </head>
 - code_before_body: HTML/script chèn trước </body>
 - code_custom_css: CSS tùy chỉnh (tự wrap trong <style>)
 - code_custom_javascript: JavaScript tùy chỉnh`,
   {
-    page_id: z.string().describe("Page ID"),
     code_before_head: z.string().optional().describe("HTML/script chèn vào <head>"),
     code_before_body: z.string().optional().describe("HTML/script chèn trước </body>"),
-    code_custom_css: z.string().optional().describe("CSS tùy chỉnh cho trang"),
-    code_custom_javascript: z.string().optional().describe("JavaScript tùy chỉnh cho trang"),
+    code_custom_css: z.string().optional().describe("CSS tùy chỉnh cho site"),
+    code_custom_javascript: z.string().optional().describe("JavaScript tùy chỉnh cho site"),
   },
-  ({ page_id, ...codes }) => {
+  (codes) => {
     const settings = {};
     for (const [k, v] of Object.entries(codes)) {
       if (v != null) settings[k] = v;
     }
-    return handle(() => api.updatePageSource(page_id, { settings }));
+    return handle(() => api.updateSiteSettings(settings));
   }
 );
 

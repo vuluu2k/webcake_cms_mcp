@@ -191,7 +191,7 @@ Neu tra ve danh sach files → MCP da hoat dong.
 - `list_pages` - Liet ke tat ca trang
 - `create_page` - Tao trang moi
 - `update_page` - Cap nhat thuoc tinh trang
-- `update_page_custom_code` - Viet CSS/JS custom code cho trang
+- `update_site_custom_code` - Viet CSS/JS custom code cho toan bo site
 - `delete_page` - Xoa trang
 - `get_page_versions` - Lich su phien ban trang
 - `list_page_contents` - Noi dung da ngon ngu
