@@ -180,10 +180,97 @@ const usersWithPosts = await User.find()
 - \`in\`, \`nin\`, \`between\`, \`like\`
 - \`sort\`, \`limit\`, \`skip\`, \`select\`, \`populate\`
 
+## Built-in Modules (@webcake/*)
+
+HTTP functions can import pre-built modules for common operations. All module functions use the global token and site_id automatically.
+
+### @webcake/article — Article/Blog management
+
+\`\`\`javascript
+import { findArticleById, findArticle, createArticle, updateArticleById, deleteArticleById } from '@webcake/article'
+
+// Find article by ID
+const article = await findArticleById(request, id)
+
+// Find articles with filters
+const { data, total } = await findArticle(request, { filters: { category: 'news' }, page: 1, limit: 10 })
+
+// Create article
+await createArticle(request, { title: 'Hello', content: '<p>...</p>' })
+
+// Update article
+await updateArticleById(request, id, { title: 'Updated' })
+
+// Delete article
+await deleteArticleById(request, id)
+\`\`\`
+
+### @webcake/customer — Customer lookup
+
+\`\`\`javascript
+import { findCustomerById, findCustomerByPhone, findCustomerByEmail } from '@webcake/customer'
+
+const customer = await findCustomerById(request, id)
+const customer = await findCustomerByPhone(request, '0901234567')
+const customer = await findCustomerByEmail(request, 'john@example.com')
+\`\`\`
+
+### @webcake/promotion — Promotion/Bonus
+
+\`\`\`javascript
+import { addBonus } from '@webcake/promotion'
+
+await addBonus(request, { customerId, amount, description })
+\`\`\`
+
+### @webcake/token — Token management
+
+\`\`\`javascript
+import { getAccessToken } from '@webcake/token'
+
+// Get new access token (request must include x_storecake_refresh_token)
+const accessToken = await getAccessToken(request)
+\`\`\`
+
+### @webcake/app/automation — Email/Automation
+
+\`\`\`javascript
+import { sendMail } from '@webcake/app/automation'
+
+await sendMail(request, automationId, { recipient, subject, body })
+\`\`\`
+
+## Global Sandbox Utilities
+
+These are automatically available in the sandbox environment (no import needed):
+
+\`\`\`javascript
+// HTTP requests
+const res = await fetch(url, { method: 'POST', headers: {...}, body: JSON.stringify(data) })
+const json = await res.json()
+
+// URL handling
+const params = new URLSearchParams({ page: '1', limit: '10' })
+const encoded = encodeURIComponent(str)
+
+// Logging (captured in debug mode)
+console.log('info:', data)
+console.warn('warning:', data)
+console.error('error:', data)
+
+// Global context
+global.domain   // API base URL
+global.siteId   // Current site ID
+global.token    // Auth token
+global.headers  // Custom headers (e.g. x-cms-api-key)
+\`\`\`
+
 ## Practical examples
 
 \`\`\`javascript
 import { DBConnection } from 'webcake-data';
+import { findCustomerByEmail } from '@webcake/customer';
+import { sendMail } from '@webcake/app/automation';
 const db = new DBConnection();
 
 // Get products from a custom collection
@@ -217,11 +304,31 @@ export const post_CreateOrder = async (request) => {
   return { order_id: order.id, status: 'created' };
 }
 
+// Use built-in customer module + external API
+export const post_SendThankYou = async (request) => {
+  const { email, automationId } = request.params;
+  const customer = await findCustomerByEmail(request, email);
+  if (!customer) return { error: 'Customer not found' };
+  await sendMail(request, automationId, {
+    recipient: email,
+    subject: 'Thank you!',
+    body: \\\`<h2>Hi \\\${customer.name},</h2><p>Thank you for your purchase!</p>\\\`
+  });
+  return { success: true };
+}
+
 // Webhook callback handler
 export const post_PaymentWebhook = async (request) => {
   const { transaction_id, status } = request.params;
   await Order.updateOne({ transaction_id }, { payment_status: status });
   return { received: true };
+}
+
+// Call external API using fetch
+export const get_ExchangeRate = async (request) => {
+  const res = await fetch('https://api.exchangerate.host/latest?base=USD');
+  const data = await res.json();
+  return { rates: data.rates };
 }
 \`\`\`
 
