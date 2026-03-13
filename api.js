@@ -13,8 +13,8 @@ export class BuilderxCmsApi {
     if (this._adminToken && this._cmsApiKey) return;
 
     const [adminRes, apiKeyRes] = await Promise.all([
-      this.request("GET", `/api/v1/dashboard/${this.siteId}/db_collections/token`),
-      this.request("GET", `/api/v1/dashboard/${this.siteId}/db_collections/api_key`),
+      this.request("GET", `/api/v1/dashboard/site/${this.siteId}/db_collections/token`),
+      this.request("GET", `/api/v1/dashboard/site/${this.siteId}/db_collections/api_key`),
     ]);
 
     this._adminToken = (adminRes && adminRes.data && adminRes.data.key) || null;
