@@ -1,6 +1,6 @@
-# BuilderX CMS MCP Server
+# WebCake CMS MCP Server
 
-MCP server cung cấp các tính năng CMS của BuilderX cho AI agent sử dụng.
+MCP server cung cấp các tính năng CMS của WebCake cho AI agent sử dụng.
 
 ## Cài đặt nhanh (Khuyên dùng)
 
@@ -32,7 +32,7 @@ curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/instal
 | `--site-id ID` | ID của site | *(bắt buộc)* |
 | `--api-url URL` | URL API | `https://api.storecake.io` |
 | `--ide IDE` | IDE cần cấu hình: `claude-desktop`, `claude`, `cursor`, `windsurf`, `augment`, `all` | `all` |
-| `--dir PATH` | Thư mục cài đặt | `~/.builderx-cms-mcp` |
+| `--dir PATH` | Thư mục cài đặt | `~/.webcake-cms-mcp` |
 | `--uninstall` | Gỡ MCP server và config IDE | — |
 
 **Ví dụ:**
@@ -63,9 +63,9 @@ npm install
 
 | Biến | Mô tả |
 |------|-------|
-| `BUILDERX_API_URL` | URL gốc của BuilderX API (vd: `https://api.storecake.io`) |
-| `BUILDERX_TOKEN` | JWT Bearer token (xác thực dashboard) |
-| `BUILDERX_SITE_ID` | ID của site cần thao tác |
+| `WEBCAKE_API_URL` | URL gốc của WebCake API (vd: `https://api.storecake.io`) |
+| `WEBCAKE_TOKEN` | JWT Bearer token (xác thực dashboard) |
+| `WEBCAKE_SITE_ID` | ID của site cần thao tác |
 
 > CMS admin token và CMS API key được tự động lấy qua API khi cần (không cần cấu hình thủ công).
 
@@ -87,13 +87,13 @@ Mở Settings > Developer > Edit Config, hoặc sửa file trực tiếp:
 ```json
 {
   "mcpServers": {
-    "builderx-cms": {
+    "webcake-cms": {
       "command": "node",
       "args": ["/đường-dẫn-tuyệt-đối/webcake_cms_mcp/index.js"],
       "env": {
-        "BUILDERX_API_URL": "https://api.storecake.io",
-        "BUILDERX_TOKEN": "<token-của-bạn>",
-        "BUILDERX_SITE_ID": "<site-id-của-bạn>"
+        "WEBCAKE_API_URL": "https://api.storecake.io",
+        "WEBCAKE_TOKEN": "<token-của-bạn>",
+        "WEBCAKE_SITE_ID": "<site-id-của-bạn>"
       }
     }
   }
@@ -109,10 +109,10 @@ Restart Claude Desktop. Các MCP tools sẽ xuất hiện trong chat input (icon
 Chạy lệnh sau trong terminal:
 
 ```bash
-claude mcp add builderx-cms \
-  -e BUILDERX_API_URL=https://api.storecake.io \
-  -e BUILDERX_TOKEN=<token-của-bạn> \
-  -e BUILDERX_SITE_ID=<site-id-của-bạn> \
+claude mcp add webcake-cms \
+  -e WEBCAKE_API_URL=https://api.storecake.io \
+  -e WEBCAKE_TOKEN=<token-của-bạn> \
+  -e WEBCAKE_SITE_ID=<site-id-của-bạn> \
   -- node /đường-dẫn-tuyệt-đối/webcake_cms_mcp/index.js
 ```
 
@@ -121,13 +121,13 @@ Hoặc tạo file `.claude.json` tại thư mục project:
 ```json
 {
   "mcpServers": {
-    "builderx-cms": {
+    "webcake-cms": {
       "command": "node",
       "args": ["/đường-dẫn-tuyệt-đối/webcake_cms_mcp/index.js"],
       "env": {
-        "BUILDERX_API_URL": "https://api.storecake.io",
-        "BUILDERX_TOKEN": "<token-của-bạn>",
-        "BUILDERX_SITE_ID": "<site-id-của-bạn>"
+        "WEBCAKE_API_URL": "https://api.storecake.io",
+        "WEBCAKE_TOKEN": "<token-của-bạn>",
+        "WEBCAKE_SITE_ID": "<site-id-của-bạn>"
       }
     }
   }
@@ -156,13 +156,13 @@ claude mcp list
 ```json
 {
   "mcpServers": {
-    "builderx-cms": {
+    "webcake-cms": {
       "command": "node",
       "args": ["/đường-dẫn-tuyệt-đối/webcake_cms_mcp/index.js"],
       "env": {
-        "BUILDERX_API_URL": "https://api.storecake.io",
-        "BUILDERX_TOKEN": "<token-của-bạn>",
-        "BUILDERX_SITE_ID": "<site-id-của-bạn>"
+        "WEBCAKE_API_URL": "https://api.storecake.io",
+        "WEBCAKE_TOKEN": "<token-của-bạn>",
+        "WEBCAKE_SITE_ID": "<site-id-của-bạn>"
       }
     }
   }
@@ -188,20 +188,20 @@ Hoặc cấu hình global tại `~/.cursor/mcp.json`.
 ```json
 {
   "mcpServers": {
-    "builderx-cms": {
+    "webcake-cms": {
       "command": "node",
       "args": ["/đường-dẫn-tuyệt-đối/webcake_cms_mcp/index.js"],
       "env": {
-        "BUILDERX_API_URL": "https://api.storecake.io",
-        "BUILDERX_TOKEN": "<token-của-bạn>",
-        "BUILDERX_SITE_ID": "<site-id-của-bạn>"
+        "WEBCAKE_API_URL": "https://api.storecake.io",
+        "WEBCAKE_TOKEN": "<token-của-bạn>",
+        "WEBCAKE_SITE_ID": "<site-id-của-bạn>"
       }
     }
   }
 }
 ```
 
-**Bước 5:** Restart Windsurf. Trong Cascade chat, gõ `@` sẽ thấy các tools của `builderx-cms`.
+**Bước 5:** Restart Windsurf. Trong Cascade chat, gõ `@` sẽ thấy các tools của `webcake-cms`.
 
 ---
 
@@ -216,13 +216,13 @@ Hoặc cấu hình global tại `~/.cursor/mcp.json`.
 ```json
 {
   "mcpServers": {
-    "builderx-cms": {
+    "webcake-cms": {
       "command": "node",
       "args": ["/đường-dẫn-tuyệt-đối/webcake_cms_mcp/index.js"],
       "env": {
-        "BUILDERX_API_URL": "https://api.storecake.io",
-        "BUILDERX_TOKEN": "<token-của-bạn>",
-        "BUILDERX_SITE_ID": "<site-id-của-bạn>"
+        "WEBCAKE_API_URL": "https://api.storecake.io",
+        "WEBCAKE_TOKEN": "<token-của-bạn>",
+        "WEBCAKE_SITE_ID": "<site-id-của-bạn>"
       }
     }
   }
@@ -236,7 +236,7 @@ Hoặc cấu hình global tại `~/.cursor/mcp.json`.
 ## Lưu ý quan trọng
 
 ### Lấy token và site_id
-1. Đăng nhập dashboard BuilderX
+1. Đăng nhập dashboard WebCake
 2. Mở DevTools (F12) > tab Network
 3. Tìm bất kỳ API request nào > copy header `Authorization: Bearer <token>`
 4. `site_id` nằm trong URL: `/api/v1/dashboard/site/{site_id}/...`

@@ -1,6 +1,6 @@
 const DEFAULT_TIMEOUT = 15000;
 
-export class BuilderxCmsApi {
+export class WebcakeCmsApi {
   constructor({ baseUrl, token, siteId }) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.token = token;

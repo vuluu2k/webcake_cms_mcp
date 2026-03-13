@@ -2,20 +2,20 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { BuilderxCmsApi } from "./api.js";
+import { WebcakeCmsApi } from "./api.js";
 
-const BASE_URL = process.env.BUILDERX_API_URL;
-const TOKEN = process.env.BUILDERX_TOKEN;
-const SITE_ID = process.env.BUILDERX_SITE_ID;
+const BASE_URL = process.env.WEBCAKE_API_URL;
+const TOKEN = process.env.WEBCAKE_TOKEN;
+const SITE_ID = process.env.WEBCAKE_SITE_ID;
 
 if (!BASE_URL || !TOKEN || !SITE_ID) {
-  console.error("Required env vars: BUILDERX_API_URL, BUILDERX_TOKEN, BUILDERX_SITE_ID");
+  console.error("Required env vars: WEBCAKE_API_URL, WEBCAKE_TOKEN, WEBCAKE_SITE_ID");
   process.exit(1);
 }
 
-const api = new BuilderxCmsApi({ baseUrl: BASE_URL, token: TOKEN, siteId: SITE_ID });
+const api = new WebcakeCmsApi({ baseUrl: BASE_URL, token: TOKEN, siteId: SITE_ID });
 const server = new McpServer({
-  name: "builderx-cms",
+  name: "webcake-cms",
   version: "1.0.0",
 });
 
@@ -37,14 +37,14 @@ async function handle(fn) {
 
 server.prompt(
   "http_function_guide",
-  "Guide for writing HTTP functions in BuilderX CMS",
+  "Guide for writing HTTP functions in WebCake CMS",
   () => ({
     messages: [
       {
         role: "user",
         content: {
           type: "text",
-          text: `# HTTP Function Guide for BuilderX CMS
+          text: `# HTTP Function Guide for WebCake CMS
 
 ## Syntax
 
@@ -374,7 +374,7 @@ server.prompt(
         role: "user",
         content: {
           type: "text",
-          text: `# Custom Code Guide for BuilderX
+          text: `# Custom Code Guide for WebCake
 
 ## Custom code structure
 

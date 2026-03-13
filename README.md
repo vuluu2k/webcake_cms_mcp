@@ -1,6 +1,6 @@
-# BuilderX CMS MCP Server
+# WebCake CMS MCP Server
 
-MCP server exposing BuilderX CMS features for AI agents.
+MCP server exposing WebCake CMS features for AI agents.
 
 ## Quick Install (Recommended)
 
@@ -32,7 +32,7 @@ curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/instal
 | `--site-id ID` | Target site ID | *(required)* |
 | `--api-url URL` | API base URL | `https://api.storecake.io` |
 | `--ide IDE` | IDE to configure: `claude-desktop`, `claude`, `cursor`, `windsurf`, `augment`, `all` | `all` |
-| `--dir PATH` | Install directory | `~/.builderx-cms-mcp` |
+| `--dir PATH` | Install directory | `~/.webcake-cms-mcp` |
 | `--uninstall` | Remove MCP server and IDE configs | — |
 
 **Examples:**
@@ -63,9 +63,9 @@ npm install
 
 | Variable | Description |
 |----------|-------------|
-| `BUILDERX_API_URL` | BuilderX API base URL (e.g. `https://api.storecake.io`) |
-| `BUILDERX_TOKEN` | JWT Bearer token (dashboard auth) |
-| `BUILDERX_SITE_ID` | Target site ID |
+| `WEBCAKE_API_URL` | WebCake API base URL (e.g. `https://api.storecake.io`) |
+| `WEBCAKE_TOKEN` | JWT Bearer token (dashboard auth) |
+| `WEBCAKE_SITE_ID` | Target site ID |
 
 > CMS admin token and CMS API key are automatically fetched via API when needed (no manual config required).
 
@@ -87,13 +87,13 @@ Open Settings > Developer > Edit Config, or edit the file directly:
 ```json
 {
   "mcpServers": {
-    "builderx-cms": {
+    "webcake-cms": {
       "command": "node",
       "args": ["/absolute-path/webcake_cms_mcp/index.js"],
       "env": {
-        "BUILDERX_API_URL": "https://api.storecake.io",
-        "BUILDERX_TOKEN": "<your-token>",
-        "BUILDERX_SITE_ID": "<your-site-id>"
+        "WEBCAKE_API_URL": "https://api.storecake.io",
+        "WEBCAKE_TOKEN": "<your-token>",
+        "WEBCAKE_SITE_ID": "<your-site-id>"
       }
     }
   }
@@ -109,10 +109,10 @@ Restart Claude Desktop. The MCP tools will appear in the chat input (hammer icon
 Run in terminal:
 
 ```bash
-claude mcp add builderx-cms \
-  -e BUILDERX_API_URL=https://api.storecake.io \
-  -e BUILDERX_TOKEN=<your-token> \
-  -e BUILDERX_SITE_ID=<your-site-id> \
+claude mcp add webcake-cms \
+  -e WEBCAKE_API_URL=https://api.storecake.io \
+  -e WEBCAKE_TOKEN=<your-token> \
+  -e WEBCAKE_SITE_ID=<your-site-id> \
   -- node /absolute-path/webcake_cms_mcp/index.js
 ```
 
@@ -121,13 +121,13 @@ Or create `.claude.json` at project root:
 ```json
 {
   "mcpServers": {
-    "builderx-cms": {
+    "webcake-cms": {
       "command": "node",
       "args": ["/absolute-path/webcake_cms_mcp/index.js"],
       "env": {
-        "BUILDERX_API_URL": "https://api.storecake.io",
-        "BUILDERX_TOKEN": "<your-token>",
-        "BUILDERX_SITE_ID": "<your-site-id>",
+        "WEBCAKE_API_URL": "https://api.storecake.io",
+        "WEBCAKE_TOKEN": "<your-token>",
+        "WEBCAKE_SITE_ID": "<your-site-id>",
       }
     }
   }
@@ -150,13 +150,13 @@ Create `.cursor/mcp.json` at project root:
 ```json
 {
   "mcpServers": {
-    "builderx-cms": {
+    "webcake-cms": {
       "command": "node",
       "args": ["/absolute-path/webcake_cms_mcp/index.js"],
       "env": {
-        "BUILDERX_API_URL": "https://api.storecake.io",
-        "BUILDERX_TOKEN": "<your-token>",
-        "BUILDERX_SITE_ID": "<your-site-id>",
+        "WEBCAKE_API_URL": "https://api.storecake.io",
+        "WEBCAKE_TOKEN": "<your-token>",
+        "WEBCAKE_SITE_ID": "<your-site-id>",
       }
     }
   }
@@ -174,20 +174,20 @@ Create `~/.codeium/windsurf/mcp_config.json`:
 ```json
 {
   "mcpServers": {
-    "builderx-cms": {
+    "webcake-cms": {
       "command": "node",
       "args": ["/absolute-path/webcake_cms_mcp/index.js"],
       "env": {
-        "BUILDERX_API_URL": "https://api.storecake.io",
-        "BUILDERX_TOKEN": "<your-token>",
-        "BUILDERX_SITE_ID": "<your-site-id>",
+        "WEBCAKE_API_URL": "https://api.storecake.io",
+        "WEBCAKE_TOKEN": "<your-token>",
+        "WEBCAKE_SITE_ID": "<your-site-id>",
       }
     }
   }
 }
 ```
 
-Restart Windsurf. Type `@` in Cascade chat to see `builderx-cms` tools.
+Restart Windsurf. Type `@` in Cascade chat to see `webcake-cms` tools.
 
 ---
 
@@ -198,13 +198,13 @@ Open Command Palette: `Cmd + Shift + P` > **"Augment: Edit MCP Settings"**, then
 ```json
 {
   "mcpServers": {
-    "builderx-cms": {
+    "webcake-cms": {
       "command": "node",
       "args": ["/absolute-path/webcake_cms_mcp/index.js"],
       "env": {
-        "BUILDERX_API_URL": "https://api.storecake.io",
-        "BUILDERX_TOKEN": "<your-token>",
-        "BUILDERX_SITE_ID": "<your-site-id>",
+        "WEBCAKE_API_URL": "https://api.storecake.io",
+        "WEBCAKE_TOKEN": "<your-token>",
+        "WEBCAKE_SITE_ID": "<your-site-id>",
       }
     }
   }

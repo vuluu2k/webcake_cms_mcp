@@ -1,10 +1,10 @@
 {
-  "name": "builderx-cms-mcp",
+  "name": "webcake-cms-mcp",
   "version": "1.0.0",
-  "description": "MCP server for BuilderX CMS features",
+  "description": "MCP server for WebCake CMS features",
   "type": "module",
   "bin": {
-    "builderx-cms-mcp": "./index.js"
+    "webcake-cms-mcp": "./index.js"
   },
   "scripts": {
     "start": "node index.js"

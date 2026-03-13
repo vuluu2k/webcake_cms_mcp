@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ═══════════════════════════════════════════════════════════
-#  BuilderX CMS MCP Server - Auto Installer
+#  WebCake CMS MCP Server - Auto Installer
 #  Supports: Claude Desktop, Claude Code, Cursor, Windsurf, Augment
 # ═══════════════════════════════════════════════════════════
 
@@ -18,7 +18,7 @@ BOLD='\033[1m'
 print_banner() {
   echo ""
   echo -e "${CYAN}╔══════════════════════════════════════════════════╗${NC}"
-  echo -e "${CYAN}║${NC}  ${BOLD}BuilderX CMS MCP Server - Installer${NC}             ${CYAN}║${NC}"
+  echo -e "${CYAN}║${NC}  ${BOLD}WebCake CMS MCP Server - Installer${NC}             ${CYAN}║${NC}"
   echo -e "${CYAN}║${NC}  Claude Desktop, Claude Code, Cursor, Windsurf...${CYAN}║${NC}"
   echo -e "${CYAN}╚══════════════════════════════════════════════════╝${NC}"
   echo ""
@@ -125,7 +125,7 @@ check_npm() {
 # ── Install MCP server ──
 
 REPO_URL="https://github.com/vuluu2k/webcake_cms_mcp.git"
-DEFAULT_INSTALL_DIR="$HOME/.builderx-cms-mcp"
+DEFAULT_INSTALL_DIR="$HOME/.webcake-cms-mcp"
 
 install_mcp() {
   echo ""
@@ -185,20 +185,20 @@ collect_env() {
   echo ""
 
   # API URL
-  read -rp "  BUILDERX_API_URL [https://api.storecake.io]: " API_URL
+  read -rp "  WEBCAKE_API_URL [https://api.storecake.io]: " API_URL
   API_URL="${API_URL:-https://api.storecake.io}"
 
   # Token
   while [ -z "$TOKEN" ]; do
-    read -rp "  BUILDERX_TOKEN (JWT token): " TOKEN
+    read -rp "  WEBCAKE_TOKEN (JWT token): " TOKEN
     if [ -z "$TOKEN" ]; then
-      warn "Token is required. Get it from BuilderX dashboard."
+      warn "Token is required. Get it from WebCake dashboard."
     fi
   done
 
   # Site ID
   while [ -z "$SITE_ID" ]; do
-    read -rp "  BUILDERX_SITE_ID: " SITE_ID
+    read -rp "  WEBCAKE_SITE_ID: " SITE_ID
     if [ -z "$SITE_ID" ]; then
       warn "Site ID is required."
     fi
@@ -217,10 +217,10 @@ configure_claude_code() {
   info "Configuring Claude Code..."
 
   if command -v claude &> /dev/null; then
-    claude mcp add builderx-cms \
-      -e BUILDERX_API_URL="$API_URL" \
-      -e BUILDERX_TOKEN="$TOKEN" \
-      -e BUILDERX_SITE_ID="$SITE_ID" \
+    claude mcp add webcake-cms \
+      -e WEBCAKE_API_URL="$API_URL" \
+      -e WEBCAKE_TOKEN="$TOKEN" \
+      -e WEBCAKE_SITE_ID="$SITE_ID" \
       -- "$NODE_BIN" "$MCP_INDEX"
     success "Claude Code configured (via CLI)"
   else
@@ -234,13 +234,13 @@ configure_claude_code() {
           const fs = require('fs');
           const config = JSON.parse(fs.readFileSync('$CLAUDE_CONFIG', 'utf8'));
           if (!config.mcpServers) config.mcpServers = {};
-          config.mcpServers['builderx-cms'] = {
+          config.mcpServers['webcake-cms'] = {
             command: '$NODE_BIN',
             args: ['$MCP_INDEX'],
             env: {
-              BUILDERX_API_URL: '$API_URL',
-              BUILDERX_TOKEN: '$TOKEN',
-              BUILDERX_SITE_ID: '$SITE_ID'
+              WEBCAKE_API_URL: '$API_URL',
+              WEBCAKE_TOKEN: '$TOKEN',
+              WEBCAKE_SITE_ID: '$SITE_ID'
             }
           };
           fs.writeFileSync('$CLAUDE_CONFIG', JSON.stringify(config, null, 2));
@@ -259,13 +259,13 @@ write_claude_config() {
   cat > "$CLAUDE_CONFIG" << JSONEOF
 {
   "mcpServers": {
-    "builderx-cms": {
+    "webcake-cms": {
       "command": "$NODE_BIN",
       "args": ["$MCP_INDEX"],
       "env": {
-        "BUILDERX_API_URL": "$API_URL",
-        "BUILDERX_TOKEN": "$TOKEN",
-        "BUILDERX_SITE_ID": "$SITE_ID"
+        "WEBCAKE_API_URL": "$API_URL",
+        "WEBCAKE_TOKEN": "$TOKEN",
+        "WEBCAKE_SITE_ID": "$SITE_ID"
       }
     }
   }
@@ -291,13 +291,13 @@ configure_claude_desktop() {
       const fs = require('fs');
       const config = JSON.parse(fs.readFileSync('$CLAUDE_DESKTOP_CONFIG', 'utf8'));
       if (!config.mcpServers) config.mcpServers = {};
-      config.mcpServers['builderx-cms'] = {
+      config.mcpServers['webcake-cms'] = {
         command: '$NODE_BIN',
         args: ['$MCP_INDEX'],
         env: {
-          BUILDERX_API_URL: '$API_URL',
-          BUILDERX_TOKEN: '$TOKEN',
-          BUILDERX_SITE_ID: '$SITE_ID'
+          WEBCAKE_API_URL: '$API_URL',
+          WEBCAKE_TOKEN: '$TOKEN',
+          WEBCAKE_SITE_ID: '$SITE_ID'
         }
       };
       fs.writeFileSync('$CLAUDE_DESKTOP_CONFIG', JSON.stringify(config, null, 2));
@@ -306,13 +306,13 @@ configure_claude_desktop() {
     cat > "$CLAUDE_DESKTOP_CONFIG" << JSONEOF
 {
   "mcpServers": {
-    "builderx-cms": {
+    "webcake-cms": {
       "command": "$NODE_BIN",
       "args": ["$MCP_INDEX"],
       "env": {
-        "BUILDERX_API_URL": "$API_URL",
-        "BUILDERX_TOKEN": "$TOKEN",
-        "BUILDERX_SITE_ID": "$SITE_ID"
+        "WEBCAKE_API_URL": "$API_URL",
+        "WEBCAKE_TOKEN": "$TOKEN",
+        "WEBCAKE_SITE_ID": "$SITE_ID"
       }
     }
   }
@@ -336,13 +336,13 @@ configure_cursor() {
       const fs = require('fs');
       const config = JSON.parse(fs.readFileSync('$CURSOR_CONFIG', 'utf8'));
       if (!config.mcpServers) config.mcpServers = {};
-      config.mcpServers['builderx-cms'] = {
+      config.mcpServers['webcake-cms'] = {
         command: '$NODE_BIN',
         args: ['$MCP_INDEX'],
         env: {
-          BUILDERX_API_URL: '$API_URL',
-          BUILDERX_TOKEN: '$TOKEN',
-          BUILDERX_SITE_ID: '$SITE_ID'
+          WEBCAKE_API_URL: '$API_URL',
+          WEBCAKE_TOKEN: '$TOKEN',
+          WEBCAKE_SITE_ID: '$SITE_ID'
         }
       };
       fs.writeFileSync('$CURSOR_CONFIG', JSON.stringify(config, null, 2));
@@ -351,13 +351,13 @@ configure_cursor() {
     cat > "$CURSOR_CONFIG" << JSONEOF
 {
   "mcpServers": {
-    "builderx-cms": {
+    "webcake-cms": {
       "command": "$NODE_BIN",
       "args": ["$MCP_INDEX"],
       "env": {
-        "BUILDERX_API_URL": "$API_URL",
-        "BUILDERX_TOKEN": "$TOKEN",
-        "BUILDERX_SITE_ID": "$SITE_ID"
+        "WEBCAKE_API_URL": "$API_URL",
+        "WEBCAKE_TOKEN": "$TOKEN",
+        "WEBCAKE_SITE_ID": "$SITE_ID"
       }
     }
   }
@@ -380,13 +380,13 @@ configure_windsurf() {
       const fs = require('fs');
       const config = JSON.parse(fs.readFileSync('$WINDSURF_CONFIG', 'utf8'));
       if (!config.mcpServers) config.mcpServers = {};
-      config.mcpServers['builderx-cms'] = {
+      config.mcpServers['webcake-cms'] = {
         command: '$NODE_BIN',
         args: ['$MCP_INDEX'],
         env: {
-          BUILDERX_API_URL: '$API_URL',
-          BUILDERX_TOKEN: '$TOKEN',
-          BUILDERX_SITE_ID: '$SITE_ID'
+          WEBCAKE_API_URL: '$API_URL',
+          WEBCAKE_TOKEN: '$TOKEN',
+          WEBCAKE_SITE_ID: '$SITE_ID'
         }
       };
       fs.writeFileSync('$WINDSURF_CONFIG', JSON.stringify(config, null, 2));
@@ -395,13 +395,13 @@ configure_windsurf() {
     cat > "$WINDSURF_CONFIG" << JSONEOF
 {
   "mcpServers": {
-    "builderx-cms": {
+    "webcake-cms": {
       "command": "$NODE_BIN",
       "args": ["$MCP_INDEX"],
       "env": {
-        "BUILDERX_API_URL": "$API_URL",
-        "BUILDERX_TOKEN": "$TOKEN",
-        "BUILDERX_SITE_ID": "$SITE_ID"
+        "WEBCAKE_API_URL": "$API_URL",
+        "WEBCAKE_TOKEN": "$TOKEN",
+        "WEBCAKE_SITE_ID": "$SITE_ID"
       }
     }
   }
@@ -429,13 +429,13 @@ configure_augment() {
   cat > "$AUGMENT_CONFIG" << JSONEOF
 {
   "mcpServers": {
-    "builderx-cms": {
+    "webcake-cms": {
       "command": "$NODE_BIN",
       "args": ["$MCP_INDEX"],
       "env": {
-        "BUILDERX_API_URL": "$API_URL",
-        "BUILDERX_TOKEN": "$TOKEN",
-        "BUILDERX_SITE_ID": "$SITE_ID"
+        "WEBCAKE_API_URL": "$API_URL",
+        "WEBCAKE_TOKEN": "$TOKEN",
+        "WEBCAKE_SITE_ID": "$SITE_ID"
       }
     }
   }
@@ -520,9 +520,9 @@ print_summary() {
   echo "    claude mcp list"
   echo ""
   echo -e "  ${BOLD}Manual run:${NC}"
-  echo "    BUILDERX_API_URL=$API_URL \\"
-  echo "    BUILDERX_TOKEN=<token> \\"
-  echo "    BUILDERX_SITE_ID=$SITE_ID \\"
+  echo "    WEBCAKE_API_URL=$API_URL \\"
+  echo "    WEBCAKE_TOKEN=<token> \\"
+  echo "    WEBCAKE_SITE_ID=$SITE_ID \\"
   echo "    $NODE_BIN $MCP_INDEX"
   echo ""
 }
@@ -531,7 +531,7 @@ print_summary() {
 
 uninstall() {
   print_banner
-  echo -e "${BOLD}── Uninstall BuilderX CMS MCP ──${NC}"
+  echo -e "${BOLD}── Uninstall WebCake CMS MCP ──${NC}"
   echo ""
 
   # Remove installed directory
@@ -545,7 +545,7 @@ uninstall() {
 
   # Remove Claude Code config
   if command -v claude &> /dev/null; then
-    claude mcp remove builderx-cms 2>/dev/null && success "Removed from Claude Code" || true
+    claude mcp remove webcake-cms 2>/dev/null && success "Removed from Claude Code" || true
   fi
 
   # Remove from Cursor
@@ -554,7 +554,7 @@ uninstall() {
       const fs = require('fs');
       const f = '$HOME/.cursor/mcp.json';
       const c = JSON.parse(fs.readFileSync(f, 'utf8'));
-      if (c.mcpServers) delete c.mcpServers['builderx-cms'];
+      if (c.mcpServers) delete c.mcpServers['webcake-cms'];
       fs.writeFileSync(f, JSON.stringify(c, null, 2));
     " 2>/dev/null && success "Removed from Cursor config" || true
   fi
