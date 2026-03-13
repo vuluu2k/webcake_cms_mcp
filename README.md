@@ -69,6 +69,14 @@ npm install
 
 > CMS admin token and CMS API key are automatically fetched via API when needed (no manual config required).
 
+### How to get `WEBCAKE_TOKEN` and `WEBCAKE_SITE_ID`
+
+1. Open [WebCake Dashboard](https://storecake.io) and log in
+2. Open DevTools (`F12` or `Cmd + Option + I`)
+3. Go to **Application** tab > **Cookies** > `https://storecake.io`
+4. Find the cookie named `token` — copy its value → this is your `WEBCAKE_TOKEN`
+5. `WEBCAKE_SITE_ID` is in the dashboard URL: `https://storecake.io/site/{site_id}/...`
+
 ---
 
 ## Configuration by IDE / AI Tool
