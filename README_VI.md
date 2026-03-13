@@ -1,77 +1,216 @@
 # BuilderX CMS MCP Server
 
-MCP server cung cấp các tính năng CMS của BuilderX cho AI agent sử dụng.
+MCP server cung cap cac tinh nang CMS cua BuilderX cho AI agent su dung.
 
-## Cài đặt
+## Cai dat
 
 ```bash
-cd mcp/cms
+git clone https://github.com/vuluu2k/webcake_cms_mcp.git
+cd webcake_cms_mcp
 npm install
 ```
 
-## Biến môi trường
+## Bien moi truong
 
-| Biến | Mô tả |
+| Bien | Mo ta |
 |------|-------|
-| `BUILDERX_API_URL` | URL gốc của BuilderX API (vd: `https://api.storecake.io`) |
-| `BUILDERX_TOKEN` | JWT Bearer token (xác thực dashboard) hoặc CMS admin token |
-| `BUILDERX_SITE_ID` | ID của site cần thao tác |
-| `BUILDERX_CMS_API_KEY` | CMS API key (cần thiết để deploy function lên bundle service) |
+| `BUILDERX_API_URL` | URL goc cua BuilderX API (vd: `https://api.storecake.io`) |
+| `BUILDERX_TOKEN` | JWT Bearer token (xac thuc dashboard) hoac CMS admin token |
+| `BUILDERX_SITE_ID` | ID cua site can thao tac |
+| `BUILDERX_CMS_API_KEY` | CMS API key (can thiet de deploy function len bundle service) |
 
-## Cấu hình Claude Code
+---
 
-Thêm vào `.claude.json` hoặc cài đặt MCP của Claude Code:
+## Cau hinh theo tung IDE / AI Tool
+
+> Thay `/duong-dan-tuyet-doi/webcake_cms_mcp/index.js` bang duong dan thuc te noi ban da clone repo.
+> Vi du: `/Users/username/webcake_cms_mcp/index.js`
+
+### 1. Claude Code (CLI)
+
+Chay lenh sau trong terminal:
+
+```bash
+claude mcp add builderx-cms \
+  -e BUILDERX_API_URL=https://api.storecake.io \
+  -e BUILDERX_TOKEN=<token-cua-ban> \
+  -e BUILDERX_SITE_ID=<site-id-cua-ban> \
+  -e BUILDERX_CMS_API_KEY=<cms-api-key-cua-ban> \
+  -- node /duong-dan-tuyet-doi/webcake_cms_mcp/index.js
+```
+
+Hoac tao file `.claude.json` tai thu muc project:
 
 ```json
 {
   "mcpServers": {
     "builderx-cms": {
       "command": "node",
-      "args": ["mcp/cms/index.js"],
+      "args": ["/duong-dan-tuyet-doi/webcake_cms_mcp/index.js"],
       "env": {
         "BUILDERX_API_URL": "https://api.storecake.io",
-        "BUILDERX_TOKEN": "<token-của-bạn>",
-        "BUILDERX_SITE_ID": "<site-id-của-bạn>",
-        "BUILDERX_CMS_API_KEY": "<cms-api-key-của-bạn>"
+        "BUILDERX_TOKEN": "<token-cua-ban>",
+        "BUILDERX_SITE_ID": "<site-id-cua-ban>",
+        "BUILDERX_CMS_API_KEY": "<cms-api-key-cua-ban>"
       }
     }
   }
 }
 ```
 
-## Danh sách công cụ
+Hoac cau hinh global tai `~/.claude.json` (ap dung cho moi project).
 
-### Quản lý CMS Files
-- `list_cms_files` - Liệt kê tất cả CMS files
-- `create_cms_file` - Tạo HTTP function / cron job / file mặc định
-- `update_cms_file` - Cập nhật nội dung file
-- `get_http_function` - Lấy file HTTP function chính
-- `update_http_function` - Tạo/cập nhật HTTP function
-- `run_function` - Chạy một function đã triển khai
-- `debug_function` - Chạy code ở chế độ debug
-- `save_file_version` - Lưu phiên bản file
-- `get_file_versions` - Xem lịch sử phiên bản
-- `toggle_debug_render` - Bật/tắt chế độ debug
+Kiem tra da cai thanh cong:
+```bash
+claude mcp list
+```
 
-### Quản lý trang (Pages)
-- `list_pages` - Liệt kê tất cả trang
-- `create_page` - Tạo trang mới
-- `update_page` - Cập nhật thuộc tính trang
-- `delete_page` - Xóa trang
-- `get_page_versions` - Lịch sử phiên bản trang
-- `list_page_contents` - Nội dung đa ngôn ngữ
-- `update_page_content` - Cập nhật nội dung theo ngôn ngữ
-- `list_global_sections` - Liệt kê các section dùng chung
+---
 
-### Bài viết Blog
-- `list_articles` - Liệt kê bài viết có lọc
-- `get_article` - Lấy bài viết theo ID
-- `create_article` - Tạo bài viết
-- `update_article` - Cập nhật bài viết
-- `delete_article` - Xóa bài viết
+### 2. Cursor
 
-### Khách hàng
-- `find_customer` - Tìm theo ID, số điện thoại, hoặc email
+**Buoc 1:** Mo Cursor Settings: `Cmd + ,` (Mac) hoac `Ctrl + ,` (Windows/Linux)
 
-### Tự động hóa
-- `send_mail` - Gửi email qua CMS automation
+**Buoc 2:** Tim muc **"MCP Servers"** trong sidebar ben trai
+
+**Buoc 3:** Click **"Add new MCP Server"**
+
+**Buoc 4:** Tao file `.cursor/mcp.json` tai thu muc goc project voi noi dung:
+
+```json
+{
+  "mcpServers": {
+    "builderx-cms": {
+      "command": "node",
+      "args": ["/duong-dan-tuyet-doi/webcake_cms_mcp/index.js"],
+      "env": {
+        "BUILDERX_API_URL": "https://api.storecake.io",
+        "BUILDERX_TOKEN": "<token-cua-ban>",
+        "BUILDERX_SITE_ID": "<site-id-cua-ban>",
+        "BUILDERX_CMS_API_KEY": "<cms-api-key-cua-ban>"
+      }
+    }
+  }
+}
+```
+
+Hoac cau hinh global tai `~/.cursor/mcp.json`.
+
+**Buoc 5:** Restart Cursor. Kiem tra trong Settings > MCP Servers — se thay trang thai **"Connected"** mau xanh.
+
+---
+
+### 3. Windsurf
+
+**Buoc 1:** Mo Windsurf Settings: `Cmd + ,` (Mac) hoac `Ctrl + ,` (Windows/Linux)
+
+**Buoc 2:** Tim muc **"Cascade"** > **"MCP Servers"**
+
+**Buoc 3:** Click **"Add Server"** > chon **"Custom"**
+
+**Buoc 4:** Tao file `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "builderx-cms": {
+      "command": "node",
+      "args": ["/duong-dan-tuyet-doi/webcake_cms_mcp/index.js"],
+      "env": {
+        "BUILDERX_API_URL": "https://api.storecake.io",
+        "BUILDERX_TOKEN": "<token-cua-ban>",
+        "BUILDERX_SITE_ID": "<site-id-cua-ban>",
+        "BUILDERX_CMS_API_KEY": "<cms-api-key-cua-ban>"
+      }
+    }
+  }
+}
+```
+
+**Buoc 5:** Restart Windsurf. Trong Cascade chat, go `@` se thay cac tools cua `builderx-cms`.
+
+---
+
+### 4. Augment (VS Code Extension)
+
+**Buoc 1:** Cai extension **Augment** tu VS Code Marketplace
+
+**Buoc 2:** Mo Command Palette: `Cmd + Shift + P` > tim **"Augment: Edit MCP Settings"**
+
+**Buoc 3:** File settings se mo ra. Them cau hinh:
+
+```json
+{
+  "mcpServers": {
+    "builderx-cms": {
+      "command": "node",
+      "args": ["/duong-dan-tuyet-doi/webcake_cms_mcp/index.js"],
+      "env": {
+        "BUILDERX_API_URL": "https://api.storecake.io",
+        "BUILDERX_TOKEN": "<token-cua-ban>",
+        "BUILDERX_SITE_ID": "<site-id-cua-ban>",
+        "BUILDERX_CMS_API_KEY": "<cms-api-key-cua-ban>"
+      }
+    }
+  }
+}
+```
+
+**Buoc 4:** Restart VS Code. Trong Augment chat panel se thay cac tools MCP.
+
+---
+
+## Luu y quan trong
+
+### Lay token va site_id
+1. Dang nhap dashboard BuilderX
+2. Mo DevTools (F12) > tab Network
+3. Tim bat ky API request nao > copy header `Authorization: Bearer <token>`
+4. `site_id` nam trong URL: `/api/v1/dashboard/site/{site_id}/...`
+
+### Kiem tra MCP hoat dong
+Sau khi cau hinh, thu hoi AI agent:
+```
+Liet ke tat ca CMS files cua site
+```
+Neu tra ve danh sach files → MCP da hoat dong.
+
+---
+
+## Danh sach cong cu
+
+### Quan ly CMS Files
+- `list_cms_files` - Liet ke tat ca CMS files
+- `create_cms_file` - Tao HTTP function / cron job / file mac dinh
+- `update_cms_file` - Cap nhat noi dung file
+- `get_http_function` - Lay file HTTP function chinh
+- `update_http_function` - Tao/cap nhat HTTP function
+- `run_function` - Chay mot function da trien khai
+- `debug_function` - Chay code o che do debug
+- `save_file_version` - Luu phien ban file
+- `get_file_versions` - Xem lich su phien ban
+- `toggle_debug_render` - Bat/tat che do debug
+
+### Quan ly trang (Pages)
+- `list_pages` - Liet ke tat ca trang
+- `create_page` - Tao trang moi
+- `update_page` - Cap nhat thuoc tinh trang
+- `update_page_custom_code` - Viet CSS/JS custom code cho trang
+- `delete_page` - Xoa trang
+- `get_page_versions` - Lich su phien ban trang
+- `list_page_contents` - Noi dung da ngon ngu
+- `update_page_content` - Cap nhat noi dung theo ngon ngu
+- `list_global_sections` - Liet ke cac section dung chung
+
+### Bai viet Blog
+- `list_articles` - Liet ke bai viet co loc
+- `get_article` - Lay bai viet theo ID
+- `create_article` - Tao bai viet
+- `update_article` - Cap nhat bai viet
+- `delete_article` - Xoa bai viet
+
+### Khach hang
+- `find_customer` - Tim theo ID, so dien thoai, hoac email
+
+### Tu dong hoa
+- `send_mail` - Gui email qua CMS automation

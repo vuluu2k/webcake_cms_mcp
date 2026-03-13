@@ -5,7 +5,8 @@ MCP server exposing BuilderX CMS features for AI agents.
 ## Setup
 
 ```bash
-cd mcp/cms
+git clone https://github.com/vuluu2k/webcake_cms_mcp.git
+cd webcake_cms_mcp
 npm install
 ```
 
@@ -18,16 +19,34 @@ npm install
 | `BUILDERX_SITE_ID` | Target site ID |
 | `BUILDERX_CMS_API_KEY` | CMS API key (required for deploying functions to bundle service) |
 
-## Claude Code Configuration
+---
 
-Add to `.claude.json` or Claude Code MCP settings:
+## Configuration by IDE / AI Tool
+
+> Replace `/absolute-path/webcake_cms_mcp/index.js` below with the actual path where you cloned the repo.
+> Example: `/Users/username/webcake_cms_mcp/index.js`
+
+### 1. Claude Code (CLI)
+
+Run in terminal:
+
+```bash
+claude mcp add builderx-cms \
+  -e BUILDERX_API_URL=https://api.storecake.io \
+  -e BUILDERX_TOKEN=<your-token> \
+  -e BUILDERX_SITE_ID=<your-site-id> \
+  -e BUILDERX_CMS_API_KEY=<your-cms-api-key> \
+  -- node /absolute-path/webcake_cms_mcp/index.js
+```
+
+Or create `.claude.json` at project root:
 
 ```json
 {
   "mcpServers": {
     "builderx-cms": {
       "command": "node",
-      "args": ["mcp/cms/index.js"],
+      "args": ["/absolute-path/webcake_cms_mcp/index.js"],
       "env": {
         "BUILDERX_API_URL": "https://api.storecake.io",
         "BUILDERX_TOKEN": "<your-token>",
@@ -38,6 +57,90 @@ Add to `.claude.json` or Claude Code MCP settings:
   }
 }
 ```
+
+Or configure globally at `~/.claude.json`.
+
+Verify:
+```bash
+claude mcp list
+```
+
+---
+
+### 2. Cursor
+
+Create `.cursor/mcp.json` at project root:
+
+```json
+{
+  "mcpServers": {
+    "builderx-cms": {
+      "command": "node",
+      "args": ["/absolute-path/webcake_cms_mcp/index.js"],
+      "env": {
+        "BUILDERX_API_URL": "https://api.storecake.io",
+        "BUILDERX_TOKEN": "<your-token>",
+        "BUILDERX_SITE_ID": "<your-site-id>",
+        "BUILDERX_CMS_API_KEY": "<your-cms-api-key>"
+      }
+    }
+  }
+}
+```
+
+Or global config at `~/.cursor/mcp.json`. Restart Cursor and check Settings > MCP Servers for **"Connected"** status.
+
+---
+
+### 3. Windsurf
+
+Create `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "builderx-cms": {
+      "command": "node",
+      "args": ["/absolute-path/webcake_cms_mcp/index.js"],
+      "env": {
+        "BUILDERX_API_URL": "https://api.storecake.io",
+        "BUILDERX_TOKEN": "<your-token>",
+        "BUILDERX_SITE_ID": "<your-site-id>",
+        "BUILDERX_CMS_API_KEY": "<your-cms-api-key>"
+      }
+    }
+  }
+}
+```
+
+Restart Windsurf. Type `@` in Cascade chat to see `builderx-cms` tools.
+
+---
+
+### 4. Augment (VS Code Extension)
+
+Open Command Palette: `Cmd + Shift + P` > **"Augment: Edit MCP Settings"**, then add:
+
+```json
+{
+  "mcpServers": {
+    "builderx-cms": {
+      "command": "node",
+      "args": ["/absolute-path/webcake_cms_mcp/index.js"],
+      "env": {
+        "BUILDERX_API_URL": "https://api.storecake.io",
+        "BUILDERX_TOKEN": "<your-token>",
+        "BUILDERX_SITE_ID": "<your-site-id>",
+        "BUILDERX_CMS_API_KEY": "<your-cms-api-key>"
+      }
+    }
+  }
+}
+```
+
+Restart VS Code.
+
+---
 
 ## Available Tools
 
@@ -57,6 +160,7 @@ Add to `.claude.json` or Claude Code MCP settings:
 - `list_pages` - List all pages
 - `create_page` - Create a page
 - `update_page` - Update page properties
+- `update_page_custom_code` - Write CSS/JS custom code for a page
 - `delete_page` - Delete a page
 - `get_page_versions` - Page version history
 - `list_page_contents` - Multi-language contents
