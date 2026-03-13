@@ -17,8 +17,8 @@ export class BuilderxCmsApi {
       this.request("GET", `/api/v1/dashboard/${this.siteId}/db_collections/api_key`),
     ]);
 
-    this._adminToken = adminRes?.data?.key || null;
-    this._cmsApiKey = apiKeyRes?.data?.key || null;
+    this._adminToken = (adminRes && adminRes.data && adminRes.data.key) || null;
+    this._cmsApiKey = (apiKeyRes && apiKeyRes.data && apiKeyRes.data.key) || null;
   }
 
   getBundleParams() {
@@ -38,16 +38,24 @@ export class BuilderxCmsApi {
       Authorization: `Bearer ${this.token}`,
     };
 
-    const res = await fetch(url, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
+
+    let res;
+    try {
+      res = await fetch(url, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
 
     const json = await res.json().catch(() => null);
     if (!res.ok) {
-      const msg = json?.message || json?.error || res.statusText;
+      const msg = (json && json.message) || (json && json.error) || res.statusText;
       throw new Error(`API ${res.status}: ${msg}`);
     }
     return json;
@@ -144,7 +152,7 @@ export class BuilderxCmsApi {
 
   async updateSiteSettings(newSettings) {
     const siteRes = await this.getSite();
-    const currentSettings = siteRes?.data?.settings || {};
+    const currentSettings = (siteRes && siteRes.data && siteRes.data.settings) || {};
     const merged = { ...currentSettings, ...newSettings };
     return this.request("POST", `/api/v1/dashboard/site/${this.siteId}/update_site`, { body: { settings: merged } });
   }

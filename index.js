@@ -293,7 +293,7 @@ const Order = db.model('custom_orders');
 export const post_CreateOrder = async (request) => {
   const { items, note } = request.params;
   const customer = request.customer;
-  if (!customer?.id) return { error: "Unauthorized" };
+  if (!customer || !customer.id) return { error: "Unauthorized" };
   const order = await Order.create({
     customer_id: customer.id,
     customer_name: customer.name,
@@ -499,7 +499,7 @@ container.innerHTML = reviews.map(r => \\\`
 \\\`).join('');
 
 // Call function on button click
-document.getElementById('submit-btn')?.addEventListener('click', async () => {
+var btn = document.getElementById('submit-btn'); btn && btn.addEventListener('click', async () => {
   try {
     const result = await api.post_SubmitForm({
       name: document.getElementById('name').value,
@@ -703,7 +703,7 @@ server.tool(
   () =>
     handle(async () => {
       const siteRes = await api.getSite();
-      const s = siteRes?.data?.settings || {};
+      const s = (siteRes && siteRes.data && siteRes.data.settings) || {};
       return {
         code_before_head: s.code_before_head || "",
         code_before_body: s.code_before_body || "",
