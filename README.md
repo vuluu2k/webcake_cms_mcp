@@ -13,9 +13,10 @@ npm install
 
 | Variable | Description |
 |----------|-------------|
-| `BUILDERX_API_URL` | BuilderX API base URL (e.g. `http://localhost:4000`) |
+| `BUILDERX_API_URL` | BuilderX API base URL (e.g. `https://api.storecake.io`) |
 | `BUILDERX_TOKEN` | JWT Bearer token (dashboard auth) or CMS admin token |
 | `BUILDERX_SITE_ID` | Target site ID |
+| `BUILDERX_CMS_API_KEY` | CMS API key (required for deploying functions to bundle service) |
 
 ## Claude Code Configuration
 
@@ -28,9 +29,10 @@ Add to `.claude.json` or Claude Code MCP settings:
       "command": "node",
       "args": ["mcp/cms/index.js"],
       "env": {
-        "BUILDERX_API_URL": "http://localhost:4000",
+        "BUILDERX_API_URL": "https://api.storecake.io",
         "BUILDERX_TOKEN": "<your-token>",
-        "BUILDERX_SITE_ID": "<your-site-id>"
+        "BUILDERX_SITE_ID": "<your-site-id>",
+        "BUILDERX_CMS_API_KEY": "<your-cms-api-key>"
       }
     }
   }

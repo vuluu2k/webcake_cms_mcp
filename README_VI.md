@@ -13,9 +13,10 @@ npm install
 
 | Biến | Mô tả |
 |------|-------|
-| `BUILDERX_API_URL` | URL gốc của BuilderX API (vd: `http://localhost:4000`) |
+| `BUILDERX_API_URL` | URL gốc của BuilderX API (vd: `https://api.storecake.io`) |
 | `BUILDERX_TOKEN` | JWT Bearer token (xác thực dashboard) hoặc CMS admin token |
 | `BUILDERX_SITE_ID` | ID của site cần thao tác |
+| `BUILDERX_CMS_API_KEY` | CMS API key (cần thiết để deploy function lên bundle service) |
 
 ## Cấu hình Claude Code
 
@@ -28,9 +29,10 @@ Thêm vào `.claude.json` hoặc cài đặt MCP của Claude Code:
       "command": "node",
       "args": ["mcp/cms/index.js"],
       "env": {
-        "BUILDERX_API_URL": "http://localhost:4000",
+        "BUILDERX_API_URL": "https://api.storecake.io",
         "BUILDERX_TOKEN": "<token-của-bạn>",
-        "BUILDERX_SITE_ID": "<site-id-của-bạn>"
+        "BUILDERX_SITE_ID": "<site-id-của-bạn>",
+        "BUILDERX_CMS_API_KEY": "<cms-api-key-của-bạn>"
       }
     }
   }
