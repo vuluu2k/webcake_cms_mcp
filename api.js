@@ -1,10 +1,11 @@
 const DEFAULT_TIMEOUT = 15000;
 
 export class BuilderxCmsApi {
-  constructor({ baseUrl, token, siteId }) {
+  constructor({ baseUrl, token, siteId, cmsApiKey }) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.token = token;
     this.siteId = siteId;
+    this.cmsApiKey = cmsApiKey;
   }
 
   async request(method, path, { body, query } = {}) {
@@ -42,11 +43,15 @@ export class BuilderxCmsApi {
   }
 
   createCmsFile(params) {
-    return this.request("POST", `/api/v1/dashboard/site/${this.siteId}/cms_files`, { body: params });
+    return this.request("POST", `/api/v1/dashboard/site/${this.siteId}/cms_files`, {
+      body: { ...params, token: this.token, x_cms_api_key: this.cmsApiKey },
+    });
   }
 
   updateCmsFile(id, params) {
-    return this.request("PATCH", `/api/v1/dashboard/site/${this.siteId}/cms_files/${id}`, { body: params });
+    return this.request("PATCH", `/api/v1/dashboard/site/${this.siteId}/cms_files/${id}`, {
+      body: { ...params, token: this.token, x_cms_api_key: this.cmsApiKey },
+    });
   }
 
   getHttpFunction() {
@@ -54,7 +59,9 @@ export class BuilderxCmsApi {
   }
 
   createOrUpdateHttpFunction(params) {
-    return this.request("POST", `/api/v1/dashboard/site/${this.siteId}/cms_files/http_function`, { body: params });
+    return this.request("POST", `/api/v1/dashboard/site/${this.siteId}/cms_files/http_function`, {
+      body: { ...params, token: this.token, x_cms_api_key: this.cmsApiKey },
+    });
   }
 
   debugFunction(params) {
