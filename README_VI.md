@@ -6,28 +6,46 @@ MCP server cung cấp các tính năng CMS của BuilderX cho AI agent sử dụ
 
 Chạy script tự động — tự clone, cài dependencies, cấu hình IDE cho bạn.
 
-```bash
-# Tải và chạy trực tiếp
-curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/install.sh | bash
-```
-
-Hoặc nếu đã clone repo:
+**Cách A — Tương tác** (script sẽ hỏi từng bước):
 
 ```bash
-chmod +x install.sh
+# Nếu đã clone repo
 ./install.sh
+
+# Hoặc tải về rồi chạy
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/install.sh -o install.sh && bash install.sh
 ```
 
-Script sẽ tự động:
-1. Kiểm tra Node.js >= 18 và npm
-2. Clone repo vào `~/.builderx-cms-mcp` (hoặc đường dẫn tùy chọn)
-3. Cài đặt dependencies
-4. Hỏi bạn nhập biến môi trường (API URL, Token, Site ID)
-5. Cấu hình IDE bạn chọn (Claude Code, Cursor, Windsurf, hoặc Augment)
-
-Gỡ cài đặt:
+**Cách B — Không tương tác** (chạy qua `curl` pipe hoặc CI):
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/install.sh | bash -s -- \
+  --token TOKEN_CUA_BAN \
+  --site-id SITE_ID_CUA_BAN
+```
+
+**Danh sách flags:**
+
+| Flag | Mô tả | Mặc định |
+|------|--------|----------|
+| `--token TOKEN` | JWT Bearer token | *(bắt buộc)* |
+| `--site-id ID` | ID của site | *(bắt buộc)* |
+| `--api-url URL` | URL API | `https://api.storecake.io` |
+| `--ide IDE` | IDE cần cấu hình: `claude`, `cursor`, `windsurf`, `augment`, `all` | `all` |
+| `--dir PATH` | Thư mục cài đặt | `~/.builderx-cms-mcp` |
+| `--uninstall` | Gỡ MCP server và config IDE | — |
+
+**Ví dụ:**
+
+```bash
+# Cài và chỉ cấu hình Claude Code
+curl -fsSL .../install.sh | bash -s -- --token abc123 --site-id site_xyz --ide claude
+
+# Cài và cấu hình Cursor + Windsurf
+./install.sh --token abc123 --site-id site_xyz --ide cursor
+./install.sh --token abc123 --site-id site_xyz --ide windsurf
+
+# Gỡ cài đặt
 ./install.sh --uninstall
 ```
 

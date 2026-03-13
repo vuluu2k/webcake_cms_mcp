@@ -6,28 +6,46 @@ MCP server exposing BuilderX CMS features for AI agents.
 
 Run the auto-install script — it handles everything: clone, install dependencies, configure your IDE.
 
-```bash
-# Download and run
-curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/install.sh | bash
-```
-
-Or if you already cloned the repo:
+**Option A — Interactive** (prompts for input):
 
 ```bash
-chmod +x install.sh
+# If you already cloned the repo
 ./install.sh
+
+# Or download and run
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/install.sh -o install.sh && bash install.sh
 ```
 
-The script will:
-1. Check Node.js >= 18 and npm
-2. Clone the repo to `~/.builderx-cms-mcp` (or custom path)
-3. Install dependencies
-4. Prompt for environment variables (API URL, Token, Site ID)
-5. Auto-configure your IDE (Claude Code, Cursor, Windsurf, or Augment)
-
-To uninstall:
+**Option B — Non-interactive** (via `curl` pipe or CI):
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/install.sh | bash -s -- \
+  --token YOUR_TOKEN \
+  --site-id YOUR_SITE_ID
+```
+
+**All flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--token TOKEN` | JWT Bearer token | *(required)* |
+| `--site-id ID` | Target site ID | *(required)* |
+| `--api-url URL` | API base URL | `https://api.storecake.io` |
+| `--ide IDE` | IDE to configure: `claude`, `cursor`, `windsurf`, `augment`, `all` | `all` |
+| `--dir PATH` | Install directory | `~/.builderx-cms-mcp` |
+| `--uninstall` | Remove MCP server and IDE configs | — |
+
+**Examples:**
+
+```bash
+# Install and configure only Claude Code
+curl -fsSL .../install.sh | bash -s -- --token abc123 --site-id site_xyz --ide claude
+
+# Install and configure Cursor + Windsurf
+./install.sh --token abc123 --site-id site_xyz --ide cursor
+./install.sh --token abc123 --site-id site_xyz --ide windsurf
+
+# Uninstall
 ./install.sh --uninstall
 ```
 
