@@ -32,58 +32,282 @@ async function handle(fn) {
 }
 
 // ═══════════════════════════════════════════
-// CMS Files
+// Prompts — dạy AI cách viết code CMS
 // ═══════════════════════════════════════════
 
-server.tool("list_cms_files", "List all CMS files (HTTP functions, cron jobs, etc.) for the site", {}, () =>
+server.prompt(
+  "http_function_guide",
+  "Hướng dẫn cách viết HTTP function trong BuilderX CMS",
+  () => ({
+    messages: [
+      {
+        role: "user",
+        content: {
+          type: "text",
+          text: `# Hướng dẫn viết HTTP Function trong BuilderX CMS
+
+## Cú pháp
+
+File http_function chứa các hàm backend JavaScript. Mỗi hàm được export theo format:
+
+\`\`\`javascript
+export const [method]_[FunctionName] = (request) => {
+  // code
+  return result;
+}
+\`\`\`
+
+## Quy tắc đặt tên
+- Method: viết thường (get, post, put, patch, delete)
+- FunctionName: PascalCase
+- Ví dụ: get_Products, post_CreateOrder, put_UpdateUser, delete_RemoveItem
+
+## Request object
+
+\`\`\`javascript
+export const get_Example = (request) => {
+  request.params    // Object - query params hoặc body params
+  request.customer  // Object - thông tin customer đang đăng nhập
+                    //   { id, name, email, first_name, last_name, phone_number, avatar }
+  request.account   // Object - thông tin account (admin)
+                    //   { id, name, email, first_name, last_name, phone_number, avatar }
+  request.data      // Object - toàn bộ request params (bao gồm query string)
+}
+\`\`\`
+
+## Gọi API function
+
+Sau khi deploy, function được gọi qua:
+\`\`\`
+GET/POST/PUT/PATCH /api/v1/{site_id}/_functions/{FunctionName}
+\`\`\`
+
+Ví dụ: \`get_Products\` → \`GET /api/v1/{site_id}/_functions/Products\`
+
+## Sử dụng webcake-fn SDK
+
+\`\`\`javascript
+const apiClient = WebCakeFn.api
+// Gọi function từ frontend
+apiClient.get_Products({ category: "shoes" })
+apiClient.post_CreateOrder({ items: [...] })
+\`\`\`
+
+## Ví dụ thực tế
+
+\`\`\`javascript
+// Lấy danh sách sản phẩm theo category
+export const get_ProductsByCategory = (request) => {
+  const { category, page = 1, limit = 10 } = request.params;
+  // logic xử lý...
+  return { products: [], total: 0 };
+}
+
+// Tạo đơn hàng
+export const post_CreateOrder = (request) => {
+  const { items, shipping_address } = request.params;
+  const customer = request.customer;
+  if (!customer?.id) return { error: "Unauthorized" };
+  // logic tạo đơn...
+  return { order_id: "...", status: "created" };
+}
+
+// Webhook nhận callback
+export const post_PaymentWebhook = (request) => {
+  const { transaction_id, status } = request.params;
+  // xử lý callback thanh toán...
+  return { received: true };
+}
+\`\`\`
+
+## Cron Jobs
+
+File jobs_config (JSON) cấu hình các hàm chạy tự động:
+
+\`\`\`json
+{
+  "jobs": [
+    {
+      "functionLocation": "backend/http_function",
+      "functionName": "syncInventory",
+      "description": "Đồng bộ tồn kho mỗi ngày lúc 2h sáng",
+      "executionConfig": {
+        "cronExpression": "0 2 * * *"
+      }
+    },
+    {
+      "functionLocation": "backend/http_function",
+      "functionName": "sendDailyReport",
+      "description": "Gửi báo cáo lúc 8h sáng",
+      "executionConfig": {
+        "time": "08:00",
+        "dayOfWeek": "Monday"
+      }
+    }
+  ]
+}
+\`\`\``
+        },
+      },
+    ],
+  })
+);
+
+server.prompt(
+  "custom_code_guide",
+  "Hướng dẫn cách viết custom code cho trang (CSS/JS)",
+  () => ({
+    messages: [
+      {
+        role: "user",
+        content: {
+          type: "text",
+          text: `# Hướng dẫn viết Custom Code cho trang trong BuilderX
+
+## Cấu trúc custom code
+
+Mỗi trang có thể chứa custom code được inject vào HTML:
+
+### 1. code_before_head
+Chèn vào trước thẻ đóng </head>. Dùng cho:
+- Meta tags bổ sung
+- External CSS/fonts
+- Tracking scripts (Google Analytics, Facebook Pixel, ...)
+
+\`\`\`html
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto">
+<meta name="custom-meta" content="value">
+<script>
+  // tracking code
+</script>
+\`\`\`
+
+### 2. code_before_body
+Chèn vào trước thẻ đóng </body>. Dùng cho:
+- JavaScript chạy sau khi DOM ready
+- Widget scripts (chat, popup, ...)
+- Custom logic
+
+\`\`\`html
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // custom logic
+  });
+</script>
+\`\`\`
+
+### 3. code_custom_css
+CSS tùy chỉnh cho trang. Tự động wrap trong <style> nếu chưa có.
+
+\`\`\`css
+.hero-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 80vh;
+}
+
+.product-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+}
+
+@media (max-width: 768px) {
+  .hero-section { min-height: 60vh; }
+}
+\`\`\`
+
+### 4. code_custom_javascript
+JavaScript tùy chỉnh cho trang.
+
+\`\`\`javascript
+// Sử dụng PubSub để giao tiếp giữa các component
+window.pubsub.subscribe('product-added', (data) => {
+  console.log('Product added:', data);
+});
+
+// Sử dụng notification
+window.useNotification('success', {
+  title: 'Thành công!',
+  message: 'Sản phẩm đã được thêm vào giỏ hàng'
+});
+
+// Resize hình ảnh
+const resized = window.resizeLink(imageUrl, 200, 200);
+// resized.webp, resized.cdn
+\`\`\`
+
+## Lưu ý
+- Custom code được lưu trong page settings, cập nhật qua update_page tool
+- Truyền vào field "settings" với các key: code_before_head, code_before_body, code_custom_css, code_custom_javascript
+- Có thể dùng window.pubsub, window.useNotification, window.resizeLink
+- Có thể truy cập window.SITE_DATA, window.DATA_ORDER cho context của site`
+        },
+      },
+    ],
+  })
+);
+
+// ═══════════════════════════════════════════
+// CMS Files — Viết và quản lý backend code
+// ═══════════════════════════════════════════
+
+server.tool("list_cms_files", "Liệt kê tất cả CMS files (HTTP functions, cron jobs, ...) của site", {}, () =>
   handle(() => api.listCmsFiles())
 );
 
 server.tool(
   "create_cms_file",
-  "Create a new CMS file (HTTP function, cron job config, or default file)",
+  `Tạo CMS file mới. Types:
+- "http_function": backend JS function, path sẽ là "backend/http_function"
+- "jobs_config": cron job config (JSON), path là "backend/jobs.config"
+- "default": file JS/JSON tùy ý`,
   {
-    name: z.string().describe("File name"),
-    path: z.string().describe("File path (e.g. 'functions/my-api')"),
-    content: z.string().describe("File content (JavaScript code)"),
-    type: z.enum(["http_function", "jobs_config", "default"]).default("default").describe("File type"),
+    name: z.string().describe("Tên file"),
+    content: z.string().describe("Nội dung code (JavaScript hoặc JSON)"),
+    type: z.enum(["http_function", "jobs_config", "default"]).default("default").describe("Loại file"),
   },
-  ({ name, path, content, type }) =>
-    handle(() => api.createCmsFile({ name, path, content, type_create: type }))
+  ({ name, content, type }) =>
+    handle(() => api.createCmsFile({ name, content, type_create: "backend", type }))
 );
 
 server.tool(
   "update_cms_file",
-  "Update an existing CMS file's content",
+  "Cập nhật nội dung code của CMS file đã tồn tại",
   {
     id: z.string().describe("CMS file ID"),
-    content: z.string().describe("Updated file content"),
-    name: z.string().optional().describe("Updated file name"),
+    content: z.string().describe("Nội dung code mới"),
+    name: z.string().optional().describe("Đổi tên file"),
   },
   ({ id, content, name }) =>
     handle(() => api.updateCmsFile(id, { content, ...(name && { name }) }))
 );
 
-server.tool("get_http_function", "Get the main HTTP function file for the site", {}, () =>
-  handle(() => api.getHttpFunction())
+server.tool(
+  "get_http_function",
+  "Lấy file HTTP function chính của site. Trả về nội dung code JS hiện tại để đọc/sửa",
+  {},
+  () => handle(() => api.getHttpFunction())
 );
 
 server.tool(
   "update_http_function",
-  "Create or update the main HTTP function file",
+  `Cập nhật file HTTP function chính. Code JS theo format:
+export const [method]_[FunctionName] = (request) => { ... }
+Ví dụ: export const get_Products = (request) => { return request.params; }
+Sau khi update sẽ tự deploy lên bundle service`,
   {
-    content: z.string().describe("HTTP function JavaScript code"),
+    content: z.string().describe("Toàn bộ nội dung code JS của file http_function"),
   },
   ({ content }) => handle(() => api.createOrUpdateHttpFunction({ content }))
 );
 
 server.tool(
   "run_function",
-  "Execute a deployed HTTP function by name",
+  `Chạy một HTTP function đã deploy. Tên function không bao gồm prefix method.
+Ví dụ: function "get_Products" → function_name="Products", method="GET"`,
   {
-    function_name: z.string().describe("Function name to execute"),
-    method: z.enum(["GET", "POST", "PUT", "PATCH"]).default("POST").describe("HTTP method"),
-    params: z.record(z.any()).optional().describe("Request parameters/body"),
+    function_name: z.string().describe("Tên function (không có prefix method, ví dụ: 'Products')"),
+    method: z.enum(["GET", "POST", "PUT", "PATCH"]).default("POST").describe("HTTP method tương ứng"),
+    params: z.record(z.any()).optional().describe("Tham số truyền vào function"),
   },
   ({ function_name, method, params }) =>
     handle(() => api.runFunction(function_name, method, params))
@@ -91,21 +315,25 @@ server.tool(
 
 server.tool(
   "debug_function",
-  "Run a CMS function in debug mode for testing",
+  `Chạy code JS ở chế độ debug để test trước khi deploy.
+Gửi code trực tiếp, không cần save file trước.
+Response trả về kết quả thực thi và log`,
   {
-    content: z.string().describe("JavaScript code to debug"),
-    params: z.record(z.any()).optional().describe("Test parameters"),
+    content: z.string().describe("Code JS cần debug (cùng format http_function)"),
+    function_name: z.string().describe("Tên function cần chạy trong code"),
+    params: z.record(z.any()).optional().describe("Tham số test"),
   },
-  ({ content, params }) => handle(() => api.debugFunction({ content, params }))
+  ({ content, function_name, params }) =>
+    handle(() => api.debugFunction({ content, functionName: function_name, params }))
 );
 
 server.tool(
   "save_file_version",
-  "Save a version snapshot of a CMS file",
+  "Lưu snapshot phiên bản của CMS file (để rollback khi cần)",
   {
     cms_file_id: z.string().describe("CMS file ID"),
-    content: z.string().describe("Version content to save"),
-    is_public: z.boolean().default(false).describe("Make this version public"),
+    content: z.string().describe("Nội dung cần lưu version"),
+    is_public: z.boolean().default(false).describe("Đánh dấu là version public"),
   },
   ({ cms_file_id, content, is_public }) =>
     handle(() => api.saveFileVersion({ cms_file_id, content, is_public }))
@@ -113,7 +341,7 @@ server.tool(
 
 server.tool(
   "get_file_versions",
-  "Get version history of a CMS file",
+  "Xem lịch sử phiên bản của CMS file",
   {
     cms_file_id: z.string().describe("CMS file ID"),
   },
@@ -122,7 +350,7 @@ server.tool(
 
 server.tool(
   "toggle_debug_render",
-  "Toggle debug render mode for a CMS file",
+  "Bật/tắt chế độ debug render cho CMS file",
   {
     cms_file_id: z.string().describe("CMS file ID"),
   },
@@ -130,21 +358,21 @@ server.tool(
 );
 
 // ═══════════════════════════════════════════
-// Pages
+// Pages — Quản lý trang và custom code
 // ═══════════════════════════════════════════
 
-server.tool("list_pages", "List all pages for the site", {}, () =>
+server.tool("list_pages", "Liệt kê tất cả trang của site", {}, () =>
   handle(() => api.listPages())
 );
 
 server.tool(
   "create_page",
-  "Create a new page",
+  "Tạo trang mới",
   {
-    name: z.string().describe("Page name"),
-    slug: z.string().describe("URL slug (e.g. '/about')"),
-    type: z.string().optional().describe("Page type"),
-    is_homepage: z.boolean().default(false).describe("Set as homepage"),
+    name: z.string().describe("Tên trang"),
+    slug: z.string().describe("URL slug (ví dụ: '/about')"),
+    type: z.string().optional().describe("Loại trang"),
+    is_homepage: z.boolean().default(false).describe("Đặt làm trang chủ"),
   },
   ({ name, slug, type, is_homepage }) =>
     handle(() => api.createPage({ name, slug, type, is_homepage }))
@@ -152,29 +380,52 @@ server.tool(
 
 server.tool(
   "update_page",
-  "Update a page's properties (name, slug, settings)",
+  "Cập nhật thuộc tính trang (tên, slug, settings, custom code)",
   {
     page_id: z.string().describe("Page ID"),
-    name: z.string().optional().describe("Updated name"),
-    slug: z.string().optional().describe("Updated slug"),
-    is_homepage: z.boolean().optional().describe("Set as homepage"),
-    settings: z.record(z.any()).optional().describe("Page settings"),
+    name: z.string().optional().describe("Tên mới"),
+    slug: z.string().optional().describe("Slug mới"),
+    is_homepage: z.boolean().optional().describe("Đặt làm trang chủ"),
+    settings: z.record(z.any()).optional().describe("Settings trang"),
   },
   ({ page_id, ...params }) => handle(() => api.updatePage(page_id, params))
 );
 
 server.tool(
-  "delete_page",
-  "Delete a page",
+  "update_page_custom_code",
+  `Cập nhật custom code (CSS/JS) cho một trang. Các field:
+- code_before_head: HTML/script chèn trước </head>
+- code_before_body: HTML/script chèn trước </body>
+- code_custom_css: CSS tùy chỉnh (tự wrap trong <style>)
+- code_custom_javascript: JavaScript tùy chỉnh`,
   {
-    page_id: z.string().describe("Page ID to delete"),
+    page_id: z.string().describe("Page ID"),
+    code_before_head: z.string().optional().describe("HTML/script chèn vào <head>"),
+    code_before_body: z.string().optional().describe("HTML/script chèn trước </body>"),
+    code_custom_css: z.string().optional().describe("CSS tùy chỉnh cho trang"),
+    code_custom_javascript: z.string().optional().describe("JavaScript tùy chỉnh cho trang"),
+  },
+  ({ page_id, ...codes }) => {
+    const settings = {};
+    for (const [k, v] of Object.entries(codes)) {
+      if (v != null) settings[k] = v;
+    }
+    return handle(() => api.updatePageSource(page_id, { settings }));
+  }
+);
+
+server.tool(
+  "delete_page",
+  "Xóa trang",
+  {
+    page_id: z.string().describe("Page ID cần xóa"),
   },
   ({ page_id }) => handle(() => api.deletePage({ page_id }))
 );
 
 server.tool(
   "get_page_versions",
-  "Get version history of a page",
+  "Xem lịch sử phiên bản của trang",
   {
     page_id: z.string().describe("Page ID"),
   },
@@ -183,27 +434,27 @@ server.tool(
 
 server.tool(
   "list_page_contents",
-  "List multi-language page contents",
+  "Liệt kê nội dung đa ngôn ngữ của trang",
   {
-    page_id: z.string().optional().describe("Filter by page ID"),
+    page_id: z.string().optional().describe("Lọc theo Page ID"),
   },
   ({ page_id }) => handle(() => api.listPageContents({ page_id }))
 );
 
 server.tool(
   "update_page_content",
-  "Create or update page content for a language",
+  "Tạo/cập nhật nội dung trang cho một ngôn ngữ",
   {
     page_id: z.string().describe("Page ID"),
-    language_code: z.string().describe("Language code (e.g. 'en', 'vi')"),
-    content: z.record(z.any()).describe("Page content data"),
+    language_code: z.string().describe("Mã ngôn ngữ (vd: 'en', 'vi')"),
+    content: z.record(z.any()).describe("Nội dung trang"),
     meta_tags: z.array(z.record(z.any())).optional().describe("SEO meta tags"),
   },
   ({ page_id, language_code, content, meta_tags }) =>
     handle(() => api.updatePageContent({ page_id, language_code, content, meta_tags }))
 );
 
-server.tool("list_global_sections", "List all reusable global sections", {}, () =>
+server.tool("list_global_sections", "Liệt kê các global section dùng chung", {}, () =>
   handle(() => api.listGlobalSections())
 );
 
@@ -213,11 +464,11 @@ server.tool("list_global_sections", "List all reusable global sections", {}, () 
 
 server.tool(
   "list_articles",
-  "List blog articles with optional filtering",
+  "Liệt kê bài viết blog",
   {
-    page: z.number().optional().describe("Page number for pagination"),
-    limit: z.number().optional().describe("Items per page"),
-    category_id: z.string().optional().describe("Filter by category ID"),
+    page: z.number().optional().describe("Số trang"),
+    limit: z.number().optional().describe("Số bài/trang"),
+    category_id: z.string().optional().describe("Lọc theo danh mục"),
   },
   ({ page, limit, category_id }) =>
     handle(() => api.listArticles({ page, limit, category_id }))
@@ -225,7 +476,7 @@ server.tool(
 
 server.tool(
   "get_article",
-  "Get a blog article by ID",
+  "Lấy chi tiết bài viết theo ID",
   {
     id: z.string().describe("Article ID"),
   },
@@ -234,39 +485,39 @@ server.tool(
 
 server.tool(
   "create_article",
-  "Create a new blog article",
+  "Tạo bài viết blog mới",
   {
-    name: z.string().describe("Article title"),
+    name: z.string().describe("Tiêu đề bài viết"),
     slug: z.string().describe("URL slug"),
-    content: z.string().describe("Article HTML content"),
-    summary: z.string().optional().describe("Article summary"),
-    category_id: z.string().optional().describe("Category ID"),
-    tags: z.array(z.string()).optional().describe("Article tags"),
-    images: z.array(z.string()).optional().describe("Image URLs"),
-    is_hidden: z.boolean().default(false).describe("Hidden from public"),
+    content: z.string().describe("Nội dung HTML"),
+    summary: z.string().optional().describe("Tóm tắt"),
+    category_id: z.string().optional().describe("ID danh mục"),
+    tags: z.array(z.string()).optional().describe("Tags"),
+    images: z.array(z.string()).optional().describe("URLs hình ảnh"),
+    is_hidden: z.boolean().default(false).describe("Ẩn khỏi public"),
   },
   (params) => handle(() => api.createArticle(params))
 );
 
 server.tool(
   "update_article",
-  "Update a blog article",
+  "Cập nhật bài viết blog",
   {
     id: z.string().describe("Article ID"),
-    name: z.string().optional().describe("Updated title"),
-    slug: z.string().optional().describe("Updated slug"),
-    content: z.string().optional().describe("Updated HTML content"),
-    summary: z.string().optional().describe("Updated summary"),
-    category_id: z.string().optional().describe("Category ID"),
-    tags: z.array(z.string()).optional().describe("Article tags"),
-    is_hidden: z.boolean().optional().describe("Hidden from public"),
+    name: z.string().optional().describe("Tiêu đề mới"),
+    slug: z.string().optional().describe("Slug mới"),
+    content: z.string().optional().describe("Nội dung HTML mới"),
+    summary: z.string().optional().describe("Tóm tắt mới"),
+    category_id: z.string().optional().describe("ID danh mục"),
+    tags: z.array(z.string()).optional().describe("Tags"),
+    is_hidden: z.boolean().optional().describe("Ẩn khỏi public"),
   },
   ({ id, ...params }) => handle(() => api.updateArticle(id, params))
 );
 
 server.tool(
   "delete_article",
-  "Delete a blog article",
+  "Xóa bài viết blog",
   {
     id: z.string().describe("Article ID"),
   },
@@ -279,10 +530,10 @@ server.tool(
 
 server.tool(
   "find_customer",
-  "Find a customer by ID, phone, or email",
+  "Tìm khách hàng theo ID, số điện thoại, hoặc email",
   {
-    by: z.enum(["id", "phone", "email"]).describe("Search field"),
-    value: z.string().describe("Search value"),
+    by: z.enum(["id", "phone", "email"]).describe("Tìm theo trường nào"),
+    value: z.string().describe("Giá trị tìm kiếm"),
   },
   ({ by, value }) =>
     handle(() => {
@@ -300,11 +551,11 @@ server.tool(
 
 server.tool(
   "send_mail",
-  "Send an email via CMS automation",
+  "Gửi email qua CMS automation",
   {
-    to: z.string().describe("Recipient email address"),
-    subject: z.string().describe("Email subject"),
-    body: z.string().describe("Email body (HTML supported)"),
+    to: z.string().describe("Email người nhận"),
+    subject: z.string().describe("Tiêu đề email"),
+    body: z.string().describe("Nội dung email (hỗ trợ HTML)"),
   },
   (params) => handle(() => api.sendMail(params))
 );

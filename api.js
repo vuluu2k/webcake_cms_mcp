@@ -111,6 +111,14 @@ export class BuilderxCmsApi {
     return this.request("GET", `/api/v1/site/${this.siteId}/global_sections`);
   }
 
+  getPageSource(pageId) {
+    return this.request("GET", `/api/v1/site/${this.siteId}/page_source/${pageId}`);
+  }
+
+  updatePageSource(pageId, params) {
+    return this.request("POST", `/api/v1/site/${this.siteId}/${pageId}/update_page`, { body: params });
+  }
+
   // ── Blog Articles ──
 
   listArticles(query) {
