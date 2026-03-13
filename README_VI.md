@@ -2,7 +2,38 @@
 
 MCP server cung cấp các tính năng CMS của BuilderX cho AI agent sử dụng.
 
-## Cài đặt
+## Cài đặt nhanh (Khuyên dùng)
+
+Chạy script tự động — tự clone, cài dependencies, cấu hình IDE cho bạn.
+
+```bash
+# Tải và chạy trực tiếp
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/install.sh | bash
+```
+
+Hoặc nếu đã clone repo:
+
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+Script sẽ tự động:
+1. Kiểm tra Node.js >= 18 và npm
+2. Clone repo vào `~/.builderx-cms-mcp` (hoặc đường dẫn tùy chọn)
+3. Cài đặt dependencies
+4. Hỏi bạn nhập biến môi trường (API URL, Token, Site ID)
+5. Cấu hình IDE bạn chọn (Claude Code, Cursor, Windsurf, hoặc Augment)
+
+Gỡ cài đặt:
+
+```bash
+./install.sh --uninstall
+```
+
+---
+
+## Cài đặt thủ công
 
 ```bash
 git clone https://github.com/vuluu2k/webcake_cms_mcp.git

@@ -2,7 +2,38 @@
 
 MCP server exposing BuilderX CMS features for AI agents.
 
-## Setup
+## Quick Install (Recommended)
+
+Run the auto-install script — it handles everything: clone, install dependencies, configure your IDE.
+
+```bash
+# Download and run
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/install.sh | bash
+```
+
+Or if you already cloned the repo:
+
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+The script will:
+1. Check Node.js >= 18 and npm
+2. Clone the repo to `~/.builderx-cms-mcp` (or custom path)
+3. Install dependencies
+4. Prompt for environment variables (API URL, Token, Site ID)
+5. Auto-configure your IDE (Claude Code, Cursor, Windsurf, or Augment)
+
+To uninstall:
+
+```bash
+./install.sh --uninstall
+```
+
+---
+
+## Manual Setup
 
 ```bash
 git clone https://github.com/vuluu2k/webcake_cms_mcp.git
