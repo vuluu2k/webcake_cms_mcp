@@ -15,9 +15,10 @@ npm install
 | Bien | Mo ta |
 |------|-------|
 | `BUILDERX_API_URL` | URL goc cua BuilderX API (vd: `https://api.storecake.io`) |
-| `BUILDERX_TOKEN` | JWT Bearer token (xac thuc dashboard) hoac CMS admin token |
+| `BUILDERX_TOKEN` | JWT Bearer token (xac thuc dashboard) |
 | `BUILDERX_SITE_ID` | ID cua site can thao tac |
-| `BUILDERX_CMS_API_KEY` | CMS API key (can thiet de deploy function len bundle service) |
+
+> CMS admin token va CMS API key duoc tu dong lay qua API khi can (khong can cau hinh thu cong).
 
 ---
 
@@ -35,7 +36,6 @@ claude mcp add builderx-cms \
   -e BUILDERX_API_URL=https://api.storecake.io \
   -e BUILDERX_TOKEN=<token-cua-ban> \
   -e BUILDERX_SITE_ID=<site-id-cua-ban> \
-  -e BUILDERX_CMS_API_KEY=<cms-api-key-cua-ban> \
   -- node /duong-dan-tuyet-doi/webcake_cms_mcp/index.js
 ```
 
@@ -51,7 +51,6 @@ Hoac tao file `.claude.json` tai thu muc project:
         "BUILDERX_API_URL": "https://api.storecake.io",
         "BUILDERX_TOKEN": "<token-cua-ban>",
         "BUILDERX_SITE_ID": "<site-id-cua-ban>",
-        "BUILDERX_CMS_API_KEY": "<cms-api-key-cua-ban>"
       }
     }
   }
@@ -87,7 +86,6 @@ claude mcp list
         "BUILDERX_API_URL": "https://api.storecake.io",
         "BUILDERX_TOKEN": "<token-cua-ban>",
         "BUILDERX_SITE_ID": "<site-id-cua-ban>",
-        "BUILDERX_CMS_API_KEY": "<cms-api-key-cua-ban>"
       }
     }
   }
@@ -120,7 +118,6 @@ Hoac cau hinh global tai `~/.cursor/mcp.json`.
         "BUILDERX_API_URL": "https://api.storecake.io",
         "BUILDERX_TOKEN": "<token-cua-ban>",
         "BUILDERX_SITE_ID": "<site-id-cua-ban>",
-        "BUILDERX_CMS_API_KEY": "<cms-api-key-cua-ban>"
       }
     }
   }
@@ -149,7 +146,6 @@ Hoac cau hinh global tai `~/.cursor/mcp.json`.
         "BUILDERX_API_URL": "https://api.storecake.io",
         "BUILDERX_TOKEN": "<token-cua-ban>",
         "BUILDERX_SITE_ID": "<site-id-cua-ban>",
-        "BUILDERX_CMS_API_KEY": "<cms-api-key-cua-ban>"
       }
     }
   }

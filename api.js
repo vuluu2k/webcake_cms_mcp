@@ -1,11 +1,28 @@
 const DEFAULT_TIMEOUT = 15000;
 
 export class BuilderxCmsApi {
-  constructor({ baseUrl, token, siteId, cmsApiKey }) {
+  constructor({ baseUrl, token, siteId }) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.token = token;
     this.siteId = siteId;
-    this.cmsApiKey = cmsApiKey;
+    this._adminToken = null;
+    this._cmsApiKey = null;
+  }
+
+  async fetchCmsTokens() {
+    if (this._adminToken && this._cmsApiKey) return;
+
+    const [adminRes, apiKeyRes] = await Promise.all([
+      this.request("GET", `/api/v1/dashboard/${this.siteId}/db_collections/token`),
+      this.request("GET", `/api/v1/dashboard/${this.siteId}/db_collections/api_key`),
+    ]);
+
+    this._adminToken = adminRes?.data?.key || null;
+    this._cmsApiKey = apiKeyRes?.data?.key || null;
+  }
+
+  getBundleParams() {
+    return { token: this._adminToken, x_cms_api_key: this._cmsApiKey };
   }
 
   async request(method, path, { body, query } = {}) {
@@ -42,15 +59,17 @@ export class BuilderxCmsApi {
     return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/cms_files`);
   }
 
-  createCmsFile(params) {
+  async createCmsFile(params) {
+    await this.fetchCmsTokens();
     return this.request("POST", `/api/v1/dashboard/site/${this.siteId}/cms_files`, {
-      body: { ...params, token: this.token, x_cms_api_key: this.cmsApiKey },
+      body: { ...params, ...this.getBundleParams() },
     });
   }
 
-  updateCmsFile(id, params) {
+  async updateCmsFile(id, params) {
+    await this.fetchCmsTokens();
     return this.request("PATCH", `/api/v1/dashboard/site/${this.siteId}/cms_files/${id}`, {
-      body: { ...params, token: this.token, x_cms_api_key: this.cmsApiKey },
+      body: { ...params, ...this.getBundleParams() },
     });
   }
 
@@ -58,9 +77,10 @@ export class BuilderxCmsApi {
     return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/cms_files/http_function`);
   }
 
-  createOrUpdateHttpFunction(params) {
+  async createOrUpdateHttpFunction(params) {
+    await this.fetchCmsTokens();
     return this.request("POST", `/api/v1/dashboard/site/${this.siteId}/cms_files/http_function`, {
-      body: { ...params, token: this.token, x_cms_api_key: this.cmsApiKey },
+      body: { ...params, ...this.getBundleParams() },
     });
   }
 

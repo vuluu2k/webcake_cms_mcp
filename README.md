@@ -15,9 +15,10 @@ npm install
 | Variable | Description |
 |----------|-------------|
 | `BUILDERX_API_URL` | BuilderX API base URL (e.g. `https://api.storecake.io`) |
-| `BUILDERX_TOKEN` | JWT Bearer token (dashboard auth) or CMS admin token |
+| `BUILDERX_TOKEN` | JWT Bearer token (dashboard auth) |
 | `BUILDERX_SITE_ID` | Target site ID |
-| `BUILDERX_CMS_API_KEY` | CMS API key (required for deploying functions to bundle service) |
+
+> CMS admin token and CMS API key are automatically fetched via API when needed (no manual config required).
 
 ---
 
@@ -35,7 +36,6 @@ claude mcp add builderx-cms \
   -e BUILDERX_API_URL=https://api.storecake.io \
   -e BUILDERX_TOKEN=<your-token> \
   -e BUILDERX_SITE_ID=<your-site-id> \
-  -e BUILDERX_CMS_API_KEY=<your-cms-api-key> \
   -- node /absolute-path/webcake_cms_mcp/index.js
 ```
 
@@ -51,7 +51,6 @@ Or create `.claude.json` at project root:
         "BUILDERX_API_URL": "https://api.storecake.io",
         "BUILDERX_TOKEN": "<your-token>",
         "BUILDERX_SITE_ID": "<your-site-id>",
-        "BUILDERX_CMS_API_KEY": "<your-cms-api-key>"
       }
     }
   }
@@ -81,7 +80,6 @@ Create `.cursor/mcp.json` at project root:
         "BUILDERX_API_URL": "https://api.storecake.io",
         "BUILDERX_TOKEN": "<your-token>",
         "BUILDERX_SITE_ID": "<your-site-id>",
-        "BUILDERX_CMS_API_KEY": "<your-cms-api-key>"
       }
     }
   }
@@ -106,7 +104,6 @@ Create `~/.codeium/windsurf/mcp_config.json`:
         "BUILDERX_API_URL": "https://api.storecake.io",
         "BUILDERX_TOKEN": "<your-token>",
         "BUILDERX_SITE_ID": "<your-site-id>",
-        "BUILDERX_CMS_API_KEY": "<your-cms-api-key>"
       }
     }
   }
@@ -131,7 +128,6 @@ Open Command Palette: `Cmd + Shift + P` > **"Augment: Edit MCP Settings"**, then
         "BUILDERX_API_URL": "https://api.storecake.io",
         "BUILDERX_TOKEN": "<your-token>",
         "BUILDERX_SITE_ID": "<your-site-id>",
-        "BUILDERX_CMS_API_KEY": "<your-cms-api-key>"
       }
     }
   }

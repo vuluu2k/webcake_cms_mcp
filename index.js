@@ -7,14 +7,13 @@ import { BuilderxCmsApi } from "./api.js";
 const BASE_URL = process.env.BUILDERX_API_URL;
 const TOKEN = process.env.BUILDERX_TOKEN;
 const SITE_ID = process.env.BUILDERX_SITE_ID;
-const CMS_API_KEY = process.env.BUILDERX_CMS_API_KEY;
 
 if (!BASE_URL || !TOKEN || !SITE_ID) {
   console.error("Required env vars: BUILDERX_API_URL, BUILDERX_TOKEN, BUILDERX_SITE_ID");
   process.exit(1);
 }
 
-const api = new BuilderxCmsApi({ baseUrl: BASE_URL, token: TOKEN, siteId: SITE_ID, cmsApiKey: CMS_API_KEY });
+const api = new BuilderxCmsApi({ baseUrl: BASE_URL, token: TOKEN, siteId: SITE_ID });
 const server = new McpServer({
   name: "builderx-cms",
   version: "1.0.0",
