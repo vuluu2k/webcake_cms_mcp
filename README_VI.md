@@ -8,6 +8,8 @@ MCP server cung cấp các tính năng CMS của WebCake cho AI agent sử dụn
 
 Chạy script tự động — tự clone, cài dependencies, cấu hình IDE cho bạn.
 
+### macOS / Linux
+
 **Cách A — Tương tác** (script sẽ hỏi từng bước):
 
 Nếu đã clone repo:
@@ -53,11 +55,30 @@ curl -fsSL .../install.sh | bash -s -- --token abc123 --site-id site_xyz --ide c
 ./install.sh --uninstall
 ```
 
+### Windows (PowerShell)
+
+Nếu đã clone repo:
+```powershell
+.\install.ps1
+```
+
+Hoặc tải về rồi chạy:
+```powershell
+irm https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/install.ps1 -OutFile install.ps1; .\install.ps1
+```
+
+Gỡ cài đặt:
+```powershell
+.\install.ps1 --uninstall
+```
+
 ---
 
 ## Cập nhật
 
 Cập nhật lên phiên bản mới nhất:
+
+### macOS / Linux
 
 ```bash
 # Tự tìm thư mục cài đặt
@@ -72,6 +93,23 @@ Hoặc chỉ định đường dẫn:
 Hoặc tải về rồi chạy:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/update.sh | bash
+```
+
+### Windows (PowerShell)
+
+```powershell
+# Tự tìm thư mục cài đặt
+.\update.ps1
+```
+
+Hoặc chỉ định đường dẫn:
+```powershell
+.\update.ps1 C:\Users\you\.webcake-cms-mcp
+```
+
+Hoặc tải về rồi chạy:
+```powershell
+irm https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/update.ps1 -OutFile update.ps1; .\update.ps1
 ```
 
 ---
@@ -471,12 +509,18 @@ send_mail({
 - `list_pages` - Liệt kê tất cả trang
 - `create_page` - Tạo trang mới
 - `update_page` - Cập nhật thuộc tính trang
+- `get_site_custom_code` - Đọc CSS/JS custom code hiện tại của site
 - `update_site_custom_code` - Viết CSS/JS custom code cho toàn bộ site
 - `delete_page` - Xóa trang
 - `get_page_versions` - Lịch sử phiên bản trang
 - `list_page_contents` - Nội dung đa ngôn ngữ
 - `update_page_content` - Cập nhật nội dung theo ngôn ngữ
 - `list_global_sections` - Liệt kê các section dùng chung
+
+### Collections (Cơ sở dữ liệu)
+- `list_collections` - Liệt kê tất cả collections với schemas
+- `get_collection` - Xem chi tiết collection và định nghĩa fields
+- `query_collection_records` - Truy vấn records từ collection
 
 ### Bài viết Blog
 - `list_articles` - Liệt kê bài viết có lọc

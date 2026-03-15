@@ -8,6 +8,8 @@ MCP server exposing WebCake CMS features for AI agents.
 
 Run the auto-install script — it handles everything: clone, install dependencies, configure your IDE.
 
+### macOS / Linux
+
 **Option A — Interactive** (prompts for input):
 
 If you already cloned the repo:
@@ -53,11 +55,30 @@ curl -fsSL .../install.sh | bash -s -- --token abc123 --site-id site_xyz --ide c
 ./install.sh --uninstall
 ```
 
+### Windows (PowerShell)
+
+If you already cloned the repo:
+```powershell
+.\install.ps1
+```
+
+Or download and run directly:
+```powershell
+irm https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/install.ps1 -OutFile install.ps1; .\install.ps1
+```
+
+Uninstall:
+```powershell
+.\install.ps1 --uninstall
+```
+
 ---
 
 ## Update
 
 Update to the latest version:
+
+### macOS / Linux
 
 ```bash
 # Auto-detect install path
@@ -72,6 +93,23 @@ Or specify the path:
 Or download and run:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/update.sh | bash
+```
+
+### Windows (PowerShell)
+
+```powershell
+# Auto-detect install path
+.\update.ps1
+```
+
+Or specify the path:
+```powershell
+.\update.ps1 C:\Users\you\.webcake-cms-mcp
+```
+
+Or download and run:
+```powershell
+irm https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/update.ps1 -OutFile update.ps1; .\update.ps1
 ```
 
 ---
@@ -436,12 +474,18 @@ send_mail({
 - `list_pages` - List all pages
 - `create_page` - Create a page
 - `update_page` - Update page properties
+- `get_site_custom_code` - Read current CSS/JS custom code for the site
 - `update_site_custom_code` - Write CSS/JS custom code for the entire site
 - `delete_page` - Delete a page
 - `get_page_versions` - Page version history
 - `list_page_contents` - Multi-language contents
 - `update_page_content` - Update content for a language
 - `list_global_sections` - List reusable sections
+
+### Collections (Database)
+- `list_collections` - List all database collections with schemas
+- `get_collection` - Get collection details and field definitions
+- `query_collection_records` - Query records from a collection
 
 ### Blog Articles
 - `list_articles` - List articles with filtering
