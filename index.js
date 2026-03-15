@@ -32,524 +32,103 @@ async function handle(fn) {
 }
 
 // ═══════════════════════════════════════════
-// Prompts — teach AI how to write CMS code
+// Guides — auto-injected into tool responses
 // ═══════════════════════════════════════════
 
-server.prompt(
-  "http_function_guide",
-  "Guide for writing HTTP functions in WebCake CMS",
-  () => ({
-    messages: [
-      {
-        role: "user",
-        content: {
-          type: "text",
-          text: `# HTTP Function Guide for WebCake CMS
+const HTTP_FUNCTION_GUIDE = `
+# HTTP Function Guide
 
 ## Syntax
-
-The http_function file contains backend JavaScript functions. Each function is exported with the format:
-
-\`\`\`javascript
-export const [method]_[FunctionName] = (request) => {
-  // code
-  return result;
-}
-\`\`\`
-
-## Naming Rules
+export const [method]_[FunctionName] = (request) => { return result; }
 - Method: lowercase (get, post, put, patch, delete)
 - FunctionName: PascalCase
-- Examples: get_Products, post_CreateOrder, put_UpdateUser, delete_RemoveItem
+- Examples: get_Products, post_CreateOrder, delete_RemoveItem
 
 ## Request object
+- request.params    — query params or body params
+- request.customer  — logged-in customer { id, name, email, first_name, last_name, phone_number, avatar }
+- request.account   — admin account { id, name, email, first_name, last_name, phone_number, avatar }
+- request.data      — full request params (including query string)
 
-\`\`\`javascript
-export const get_Example = (request) => {
-  request.params    // Object - query params or body params
-  request.customer  // Object - logged-in customer info
-                    //   { id, name, email, first_name, last_name, phone_number, avatar }
-  request.account   // Object - admin account info
-                    //   { id, name, email, first_name, last_name, phone_number, avatar }
-  request.data      // Object - full request params (including query string)
-}
-\`\`\`
-
-## Calling API functions
-
-After deployment, functions are called via:
-\`\`\`
+## API endpoint after deploy
 GET/POST/PUT/PATCH /api/v1/{site_id}/_functions/{FunctionName}
-\`\`\`
 
-Example: \`get_Products\` → \`GET /api/v1/{site_id}/_functions/Products\`
-
-## Using webcake-fn SDK
-
-\`\`\`javascript
-const apiClient = WebCakeFn.api
-// Call function from frontend
-apiClient.get_Products({ category: "shoes" })
-apiClient.post_CreateOrder({ items: [...] })
-\`\`\`
-
-## Using webcake-data (Database SDK)
-
-HTTP functions have the \`webcake-data\` package built-in — a MongoDB-style database query SDK.
-
-### Initialization (no config needed inside http_function, already pre-configured)
-
-\`\`\`javascript
+## webcake-data (Database SDK, built-in, no config needed)
 import { DBConnection } from 'webcake-data';
-
 const db = new DBConnection();
-\`\`\`
+const Model = db.model('table_name');
 
-### Model creation and CRUD
+### CRUD
+- Model.create({ field: value })
+- Model.insertMany([...])
+- Model.find(filter).sort().limit().skip().select().exec()
+- Model.findOne(filter, { select, sort, populate })
+- Model.findById(id)
+- Model.updateOne(filter, update)
+- Model.findByIdAndUpdate(id, update)
+- Model.updateMany(filter, update)
+- Model.deleteOne(filter)
+- Model.findByIdAndDelete(id)
+- Model.deleteMany(filter)
+- Model.countDocuments(filter)
+- Model.exists(filter)
 
-\`\`\`javascript
-const User = db.model('users');
-
-// Create
-const user = await User.create({ name: 'John', email: 'john@example.com', age: 30 });
-
-// Insert many
-await User.insertMany([{ name: 'A' }, { name: 'B' }]);
-
-// Find
-const users = await User.find({ active: true }).exec();
-const user = await User.findOne({ email: 'john@example.com' });
-const userById = await User.findById('uuid-here');
-
-// findOne/findById with options
-const user = await User.findOne({ email: 'john@example.com' }, {
-  select: ['id', 'name', 'email'],
-  sort: { inserted_at: -1 },
-  populate: { field: 'profile', table: 'profiles', referenceField: 'user_id', select: 'avatar bio' }
-});
-
-// Update
-await User.updateOne({ email: 'john@example.com' }, { age: 31 });
-await User.findByIdAndUpdate('uuid', { age: 32 });
-await User.updateMany({ active: false }, { active: true });
-
-// Delete
-await User.deleteOne({ email: 'john@example.com' });
-await User.findByIdAndDelete('uuid');
-await User.deleteMany({ active: false });
-
-// Count & Exists
-const count = await User.countDocuments({ active: true });
-const exists = await User.exists({ email: 'john@example.com' });
-\`\`\`
-
-### Advanced queries (QueryBuilder)
-
-\`\`\`javascript
-const results = await User.find()
-  .where('age').gte(25).lte(40)
-  .where('active', true)
-  .in('role', ['admin', 'editor'])
-  .like('email', '%@example.com')
-  .sort({ age: -1, name: 1 })
-  .limit(20)
-  .skip(10)
-  .select('name email age')
-  .exec();
-\`\`\`
+### QueryBuilder
+Model.find().where('age').gte(25).lte(40).in('role', ['admin']).like('email', '%@ex.com').sort({ age: -1 }).limit(20).skip(10).select('name email').exec()
 
 ### Populate (joins)
+Model.find().populate({ field: 'posts', table: 'posts', referenceField: 'user_id', select: 'title', where: {}, sort: {}, limit: 5 }).exec()
 
-\`\`\`javascript
-const usersWithPosts = await User.find()
-  .populate({
-    field: 'posts',
-    table: 'posts',
-    referenceField: 'user_id',
-    select: 'title content',
-    where: { published: true },
-    sort: { inserted_at: -1 },
-    limit: 5
-  })
-  .exec();
-\`\`\`
+### Operators
+where, eq, ne, gt, gte, lt, lte, in, nin, between, like, sort, limit, skip, select, populate
 
-### Query operators
-- \`where(field, operator, value)\` or \`where(obj)\`
-- \`eq\`, \`ne\`, \`gt\`, \`gte\`, \`lt\`, \`lte\`
-- \`in\`, \`nin\`, \`between\`, \`like\`
-- \`sort\`, \`limit\`, \`skip\`, \`select\`, \`populate\`
+## Built-in Modules
+- import { findArticleById, findArticle, createArticle, updateArticleById, deleteArticleById } from '@webcake/article'
+- import { findCustomerById, findCustomerByPhone, findCustomerByEmail } from '@webcake/customer'
+- import { addBonus } from '@webcake/promotion'
+- import { getAccessToken } from '@webcake/token'
+- import { sendMail } from '@webcake/app/automation'
+All module functions take (request, ...args) and auto-use global token/site_id.
 
-## Built-in Modules (@webcake/*)
+## Sandbox Globals (no import needed)
+- fetch(url, options) — HTTP requests
+- URLSearchParams — URL query building
+- console.log/warn/error — logging (captured in debug mode)
+- global.domain, global.siteId, global.token, global.headers
 
-HTTP functions can import pre-built modules for common operations. All module functions use the global token and site_id automatically.
+## Cron Jobs (jobs_config JSON)
+{ "jobs": [{ "functionLocation": "backend/http_function", "functionName": "myFunc", "executionConfig": { "cronExpression": "0 2 * * *" } }] }
+`;
 
-### @webcake/article — Article/Blog management
+const CUSTOM_CODE_GUIDE = `
+# Custom Code Guide
 
-\`\`\`javascript
-import { findArticleById, findArticle, createArticle, updateArticleById, deleteArticleById } from '@webcake/article'
+Custom code is stored in site settings (applies to entire site, not per page).
 
-// Find article by ID
-const article = await findArticleById(request, id)
+## Injection points
+- code_before_head: HTML/script inserted before </head> (meta tags, external CSS, tracking scripts)
+- code_before_body: HTML/script inserted before </body> (DOM-ready JS, widgets)
+- code_custom_css: Custom CSS (auto-wrapped in <style>)
+- code_custom_javascript: Custom JavaScript
 
-// Find articles with filters
-const { data, total } = await findArticle(request, { filters: { category: 'news' }, page: 1, limit: 10 })
-
-// Create article
-await createArticle(request, { title: 'Hello', content: '<p>...</p>' })
-
-// Update article
-await updateArticleById(request, id, { title: 'Updated' })
-
-// Delete article
-await deleteArticleById(request, id)
-\`\`\`
-
-### @webcake/customer — Customer lookup
-
-\`\`\`javascript
-import { findCustomerById, findCustomerByPhone, findCustomerByEmail } from '@webcake/customer'
-
-const customer = await findCustomerById(request, id)
-const customer = await findCustomerByPhone(request, '0901234567')
-const customer = await findCustomerByEmail(request, 'john@example.com')
-\`\`\`
-
-### @webcake/promotion — Promotion/Bonus
-
-\`\`\`javascript
-import { addBonus } from '@webcake/promotion'
-
-await addBonus(request, { customerId, amount, description })
-\`\`\`
-
-### @webcake/token — Token management
-
-\`\`\`javascript
-import { getAccessToken } from '@webcake/token'
-
-// Get new access token (request must include x_storecake_refresh_token)
-const accessToken = await getAccessToken(request)
-\`\`\`
-
-### @webcake/app/automation — Email/Automation
-
-\`\`\`javascript
-import { sendMail } from '@webcake/app/automation'
-
-await sendMail(request, automationId, { recipient, subject, body })
-\`\`\`
-
-## Global Sandbox Utilities
-
-These are automatically available in the sandbox environment (no import needed):
-
-\`\`\`javascript
-// HTTP requests
-const res = await fetch(url, { method: 'POST', headers: {...}, body: JSON.stringify(data) })
-const json = await res.json()
-
-// URL handling
-const params = new URLSearchParams({ page: '1', limit: '10' })
-const encoded = encodeURIComponent(str)
-
-// Logging (captured in debug mode)
-console.log('info:', data)
-console.warn('warning:', data)
-console.error('error:', data)
-
-// Global context
-global.domain   // API base URL
-global.siteId   // Current site ID
-global.token    // Auth token
-global.headers  // Custom headers (e.g. x-cms-api-key)
-\`\`\`
-
-## Practical examples
-
-\`\`\`javascript
-import { DBConnection } from 'webcake-data';
-import { findCustomerByEmail } from '@webcake/customer';
-import { sendMail } from '@webcake/app/automation';
-const db = new DBConnection();
-
-// Get products from a custom collection
-const Product = db.model('my_products');
-
-export const get_ProductsByCategory = async (request) => {
-  const { category, page = 1, limit = 10 } = request.params;
-  const products = await Product.find({ category })
-    .sort({ inserted_at: -1 })
-    .limit(limit)
-    .skip((page - 1) * limit)
-    .exec();
-  const total = await Product.countDocuments({ category });
-  return { products, total, page };
-}
-
-// Create order with custom data
-const Order = db.model('custom_orders');
-
-export const post_CreateOrder = async (request) => {
-  const { items, note } = request.params;
-  const customer = request.customer;
-  if (!customer || !customer.id) return { error: "Unauthorized" };
-  const order = await Order.create({
-    customer_id: customer.id,
-    customer_name: customer.name,
-    items,
-    note,
-    status: 'pending'
-  });
-  return { order_id: order.id, status: 'created' };
-}
-
-// Use built-in customer module + external API
-export const post_SendThankYou = async (request) => {
-  const { email, automationId } = request.params;
-  const customer = await findCustomerByEmail(request, email);
-  if (!customer) return { error: 'Customer not found' };
-  await sendMail(request, automationId, {
-    recipient: email,
-    subject: 'Thank you!',
-    body: \\\`<h2>Hi \\\${customer.name},</h2><p>Thank you for your purchase!</p>\\\`
-  });
-  return { success: true };
-}
-
-// Webhook callback handler
-export const post_PaymentWebhook = async (request) => {
-  const { transaction_id, status } = request.params;
-  await Order.updateOne({ transaction_id }, { payment_status: status });
-  return { received: true };
-}
-
-// Call external API using fetch
-export const get_ExchangeRate = async (request) => {
-  const res = await fetch('https://api.exchangerate.host/latest?base=USD');
-  const data = await res.json();
-  return { rates: data.rates };
-}
-\`\`\`
-
-## Cron Jobs
-
-The jobs_config file (JSON) configures auto-running functions:
-
-\`\`\`json
-{
-  "jobs": [
-    {
-      "functionLocation": "backend/http_function",
-      "functionName": "syncInventory",
-      "description": "Sync inventory daily at 2am",
-      "executionConfig": {
-        "cronExpression": "0 2 * * *"
-      }
-    },
-    {
-      "functionLocation": "backend/http_function",
-      "functionName": "sendDailyReport",
-      "description": "Send report at 8am",
-      "executionConfig": {
-        "time": "08:00",
-        "dayOfWeek": "Monday"
-      }
-    }
-  ]
-}
-\`\`\``
-        },
-      },
-    ],
-  })
-);
-
-server.prompt(
-  "custom_code_guide",
-  "Guide for writing custom code for pages (CSS/JS)",
-  () => ({
-    messages: [
-      {
-        role: "user",
-        content: {
-          type: "text",
-          text: `# Custom Code Guide for WebCake
-
-## Custom code structure
-
-Custom code is injected into the site HTML:
-
-### 1. code_before_head
-Inserted before the closing </head> tag. Used for:
-- Additional meta tags
-- External CSS/fonts
-- Tracking scripts (Google Analytics, Facebook Pixel, ...)
-
-\`\`\`html
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto">
-<meta name="custom-meta" content="value">
-<script>
-  // tracking code
-</script>
-\`\`\`
-
-### 2. code_before_body
-Inserted before the closing </body> tag. Used for:
-- JavaScript that runs after DOM ready
-- Widget scripts (chat, popup, ...)
-- Custom logic
-
-\`\`\`html
-<script>
-  document.addEventListener('DOMContentLoaded', () => {
-    // custom logic
-  });
-</script>
-\`\`\`
-
-### 3. code_custom_css
-Custom CSS for the site. Automatically wrapped in <style> if not already.
-
-\`\`\`css
-.hero-section {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  min-height: 80vh;
-}
-
-.product-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(0,0,0,0.1);
-}
-
-@media (max-width: 768px) {
-  .hero-section { min-height: 60vh; }
-}
-\`\`\`
-
-### 4. code_custom_javascript
-Custom JavaScript for the site.
-
-\`\`\`javascript
-// Use PubSub for cross-component communication
-window.pubsub.subscribe('product-added', (data) => {
-  console.log('Product added:', data);
-});
-
-// Use notification
-window.useNotification('success', {
-  title: 'Success!',
-  message: 'Product has been added to cart'
-});
-
-// Resize image
-const resized = window.resizeLink(imageUrl, 200, 200);
-// resized.webp, resized.cdn
-\`\`\`
-
-## Using webcake-fn (call HTTP functions from frontend)
-
-The \`webcake-fn\` package allows calling backend HTTP functions from custom code.
-
-### Installation
-
-Add CDN to \`code_before_head\` to load webcake-fn:
-
-\`\`\`html
+## webcake-fn (call HTTP functions from frontend)
+Add CDN to code_before_head:
 <script src="https://cdn.jsdelivr.net/npm/webcake-fn/dist/webcake-fn.umd.min.js"></script>
-\`\`\`
 
-### Usage in custom code
+Then use window.api in code_custom_javascript or code_before_body:
+- api.get_Products({ category: 'shoes' })
+- api.post_CreateOrder({ items: [...] })
+- Method lowercase + FunctionName matching backend export
 
-After loading CDN, use \`window.api\` in \`code_before_body\` or \`code_custom_javascript\`:
+## Available globals
+- window.pubsub.subscribe(event, callback) / window.pubsub.publish(event, data)
+- window.useNotification(type, { title, message }) — type: 'success' | 'error' | 'warning'
+- window.resizeLink(url, width, height) — returns { webp, cdn }
+- window.SITE_DATA, window.DATA_ORDER — site context
 
-\`\`\`javascript
-// window.api is the webcake-fn instance, call HTTP functions directly
-// Format: api.[method]_[FunctionName](params)
-
-// GET request
-const products = await api.get_ProductsByCategory({ category: 'shoes', page: 1 });
-
-// POST request
-const order = await api.post_CreateOrder({ items: [...], note: 'Express delivery' });
-
-// PUT request
-const updated = await api.put_UpdateProfile({ name: 'New Name' });
-
-// DELETE request
-const deleted = await api.delete_RemoveItem({ itemId: '123' });
-\`\`\`
-
-### Naming rules
-- Method in lowercase: \`get\`, \`post\`, \`put\`, \`delete\`
-- FunctionName matches the export name in http_function backend
-- Example: backend exports \`get_Products\` → frontend calls \`api.get_Products(params)\`
-
-### Combining with other APIs in custom code
-
-\`\`\`javascript
-// Fetch data from backend function and display
-const reviews = await api.get_ProductReviews({ productId: '123' });
-const container = document.getElementById('reviews');
-container.innerHTML = reviews.map(r => \\\`
-  <div class="review">
-    <strong>\\\${r.author}</strong>
-    <p>\\\${r.content}</p>
-  </div>
-\\\`).join('');
-
-// Call function on button click
-var btn = document.getElementById('submit-btn'); btn && btn.addEventListener('click', async () => {
-  try {
-    const result = await api.post_SubmitForm({
-      name: document.getElementById('name').value,
-      email: document.getElementById('email').value
-    });
-    window.useNotification('success', { title: 'Submitted successfully!' });
-  } catch (error) {
-    window.useNotification('error', { title: 'Error', message: error.message });
-  }
-});
-\`\`\`
-
-### Calling multiple functions in parallel
-
-\`\`\`javascript
-const [products, categories, banners] = await Promise.all([
-  api.get_Products({ limit: 10 }),
-  api.get_Categories(),
-  api.get_Banners({ position: 'homepage' })
-]);
-\`\`\`
-
-### Error handling
-
-\`\`\`javascript
-try {
-  const result = await api.post_CreateOrder({ items: cartItems });
-  // result is the direct return value (unwrapped from response.data.result)
-  console.log(result);
-} catch (error) {
-  if (error.message.includes('HTTP error! status: 401')) {
-    // Not logged in
-    window.location.href = '/login';
-  } else {
-    window.useNotification('error', { title: 'Error', message: error.message });
-  }
-}
-\`\`\`
-
-## Notes
-- Custom code is stored in **site settings** (applies to the entire site, not per page)
-- Update via the update_site_custom_code tool
-- Available globals: window.pubsub, window.useNotification, window.resizeLink
-- Use \`api\` (webcake-fn) to call backend HTTP functions
-- Access window.SITE_DATA, window.DATA_ORDER for site context`
-        },
-      },
-    ],
-  })
-);
+## Error handling
+try { const r = await api.post_X(params); } catch (e) { window.useNotification('error', { title: 'Error', message: e.message }); }
+`;
 
 // ═══════════════════════════════════════════
 // CMS Files — Write and manage backend code
@@ -588,7 +167,7 @@ server.tool(
 
 server.tool(
   "get_http_function",
-  "Get the main HTTP function file of the site. Returns current JS code along with all collection schemas (table names, field definitions) so you can write code using the correct field names with webcake-data",
+  "Get the main HTTP function file. Returns current code, collection schemas, and a coding guide. Always call this before writing/updating HTTP functions",
   {},
   () =>
     handle(async () => {
@@ -606,7 +185,7 @@ server.tool(
           reference: f.reference || undefined,
         })),
       }));
-      return { http_function: httpFunc, collections: schemas };
+      return { guide: HTTP_FUNCTION_GUIDE, http_function: httpFunc, collections: schemas };
     })
 );
 
@@ -715,13 +294,14 @@ server.tool(
 
 server.tool(
   "get_site_custom_code",
-  "Get current custom code of the site (CSS/JS). Use to read existing code before updating, to avoid overwriting",
+  "Get current custom code of the site (CSS/JS) with coding guide. Always call this before writing/updating custom code to avoid overwriting existing code",
   {},
   () =>
     handle(async () => {
       const siteRes = await api.getSite();
       const s = (siteRes && siteRes.data && siteRes.data.settings) || {};
       return {
+        guide: CUSTOM_CODE_GUIDE,
         code_before_head: s.code_before_head || "",
         code_before_body: s.code_before_body || "",
         code_custom_css: s.code_custom_css || "",
