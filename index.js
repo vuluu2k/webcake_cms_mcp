@@ -588,9 +588,26 @@ server.tool(
 
 server.tool(
   "get_http_function",
-  "Get the main HTTP function file of the site. Returns current JS code content for reading/editing",
+  "Get the main HTTP function file of the site. Returns current JS code along with all collection schemas (table names, field definitions) so you can write code using the correct field names with webcake-data",
   {},
-  () => handle(() => api.getHttpFunction())
+  () =>
+    handle(async () => {
+      const [httpFunc, collections] = await Promise.all([
+        api.getHttpFunction(),
+        api.listCollections({ limit: 100 }).catch(() => null),
+      ]);
+      const schemas = (collections && collections.data || []).map((c) => ({
+        name: c.name,
+        table_name: c.table_name,
+        fields: (c.schema || []).map((f) => ({
+          name: f.name,
+          type: f.type,
+          is_required: f.is_required,
+          reference: f.reference || undefined,
+        })),
+      }));
+      return { http_function: httpFunc, collections: schemas };
+    })
 );
 
 server.tool(
