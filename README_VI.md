@@ -10,11 +10,13 @@ Chạy script tự động — tự clone, cài dependencies, cấu hình IDE ch
 
 **Cách A — Tương tác** (script sẽ hỏi từng bước):
 
+Nếu đã clone repo:
 ```bash
-# Nếu đã clone repo
 ./install.sh
+```
 
-# Hoặc tải về rồi chạy
+Hoặc tải về rồi chạy:
+```bash
 curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/install.sh -o install.sh && bash install.sh
 ```
 

@@ -10,11 +10,13 @@ Run the auto-install script — it handles everything: clone, install dependenci
 
 **Option A — Interactive** (prompts for input):
 
+If you already cloned the repo:
 ```bash
-# If you already cloned the repo
 ./install.sh
+```
 
-# Or download and run
+Or download and run directly:
+```bash
 curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/install.sh -o install.sh && bash install.sh
 ```
 
