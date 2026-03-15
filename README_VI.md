@@ -55,6 +55,27 @@ curl -fsSL .../install.sh | bash -s -- --token abc123 --site-id site_xyz --ide c
 
 ---
 
+## Cập nhật
+
+Cập nhật lên phiên bản mới nhất:
+
+```bash
+# Tự tìm thư mục cài đặt
+~/.webcake-cms-mcp/update.sh
+```
+
+Hoặc chỉ định đường dẫn:
+```bash
+./update.sh ~/.webcake-cms-mcp
+```
+
+Hoặc tải về rồi chạy:
+```bash
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/update.sh | bash
+```
+
+---
+
 ## Cài đặt thủ công
 
 ```bash

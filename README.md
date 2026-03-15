@@ -55,6 +55,27 @@ curl -fsSL .../install.sh | bash -s -- --token abc123 --site-id site_xyz --ide c
 
 ---
 
+## Update
+
+Update to the latest version:
+
+```bash
+# Auto-detect install path
+~/.webcake-cms-mcp/update.sh
+```
+
+Or specify the path:
+```bash
+./update.sh ~/.webcake-cms-mcp
+```
+
+Or download and run:
+```bash
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/update.sh | bash
+```
+
+---
+
 ## Manual Setup
 
 ```bash
