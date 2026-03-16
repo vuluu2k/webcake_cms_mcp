@@ -94,6 +94,27 @@ irm https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/update.ps1 -O
 
 ---
 
+## Cấu hình Knowledge (Tuỳ chọn)
+
+Thêm knowledge files để AI hiểu quy tắc kinh doanh, chính sách, chuẩn code của bạn.
+
+```bash
+# Nếu đã clone repo
+./setup_env_vi.sh
+
+# Hoặc tải về rồi chạy
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/setup_env_vi.sh | bash
+```
+
+Script sẽ:
+1. Hỏi các biến knowledge (`WEBCAKE_KNOWLEDGE_DIR`, `WEBCAKE_KNOWLEDGE_REPO`, `WEBCAKE_KNOWLEDGE_TOKEN`)
+2. Tự phát hiện IDE đã cấu hình webcake-cms
+3. Gộp biến mới vào config hiện có — không ghi đè biến cũ
+
+Xem thư mục `knowledge/` để biết cách viết và ví dụ mẫu.
+
+---
+
 ## Cài đặt thủ công
 
 ```bash

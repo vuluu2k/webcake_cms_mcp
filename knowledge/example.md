@@ -250,3 +250,79 @@ knowledge/
 ```
 
 Keep each file focused on **one topic**. Prefer many small files over one large file — the AI agent will only read what it needs.
+
+---
+
+## Quick Setup with Script
+
+Instead of manually editing each IDE config, use the automated setup scripts.
+
+### Copy & Run (curl)
+
+**Install MCP server + configure IDE (first time):**
+
+```bash
+# English
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/install.sh | bash
+
+# Vietnamese
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/install_vi.sh | bash
+```
+
+**Setup knowledge env vars (after install):**
+
+```bash
+# English
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/setup_env.sh | bash
+
+# Vietnamese
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/setup_env_vi.sh | bash
+```
+
+**Update to latest version:**
+
+```bash
+# English
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/update.sh | bash
+
+# Vietnamese
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/update_vi.sh | bash
+```
+
+> **Tip:** Replace `| bash` with `| less` to review the script before running
+
+**Or if you already cloned the repo:**
+
+```bash
+./setup_env.sh       # English
+./setup_env_vi.sh    # Vietnamese
+```
+
+The script will:
+
+1. **Detect** your MCP server installation
+2. **Ask** for 3 optional knowledge env vars:
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `WEBCAKE_KNOWLEDGE_DIR` | Local knowledge files directory | No (default: `knowledge/`) |
+| `WEBCAKE_KNOWLEDGE_REPO` | GitHub repo with knowledge files | No |
+| `WEBCAKE_KNOWLEDGE_TOKEN` | GitHub token for private repos | No |
+
+3. **Auto-detect** IDEs with webcake-cms configured (Claude Desktop, Claude Code, Cursor, Windsurf, Augment, Codex)
+4. **Merge** new env vars into existing configs — without overwriting your API URL, token, or site_id
+
+### All Environment Variables
+
+```
+Required (set via install.sh):
+  WEBCAKE_API_URL          — Backend API URL
+  WEBCAKE_TOKEN            — JWT Bearer token
+  WEBCAKE_SESSION_ID       — Session ID
+  WEBCAKE_SITE_ID          — Target site ID
+
+Optional (set via setup_env.sh):
+  WEBCAKE_KNOWLEDGE_DIR    — Custom knowledge files directory
+  WEBCAKE_KNOWLEDGE_REPO   — GitHub repo (owner/repo or full URL)
+  WEBCAKE_KNOWLEDGE_TOKEN  — GitHub token (for private repos)
+```

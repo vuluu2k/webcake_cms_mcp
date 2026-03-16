@@ -114,6 +114,27 @@ irm https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/update.ps1 -O
 
 ---
 
+## Setup Knowledge (Optional)
+
+Add custom knowledge files so AI agents understand your business rules, policies, and coding standards.
+
+```bash
+# If you already cloned the repo
+./setup_env.sh
+
+# Or download and run directly
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/setup_env.sh | bash
+```
+
+This script will:
+1. Ask for knowledge env vars (`WEBCAKE_KNOWLEDGE_DIR`, `WEBCAKE_KNOWLEDGE_REPO`, `WEBCAKE_KNOWLEDGE_TOKEN`)
+2. Auto-detect IDEs already configured with webcake-cms
+3. Merge the new env vars into existing IDE configs
+
+See the `knowledge/` folder for examples and writing guides.
+
+---
+
 ## Manual Setup
 
 ```bash

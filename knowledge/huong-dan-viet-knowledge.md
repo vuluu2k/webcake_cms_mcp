@@ -387,3 +387,120 @@ my-store-knowledge/
 ```
 
 Mỗi file là một "bài học" riêng cho AI. Khi khách hỏi về vận chuyển, AI sẽ chỉ đọc `van-chuyen.md`. Khi hỏi về đổi trả, AI đọc `chinh-sach-ban-hang.md`. Tiết kiệm và chính xác.
+
+---
+
+## Phần 6: Cấu hình nhanh bằng script
+
+Thay vì sửa thủ công từng file cấu hình IDE, bạn có thể dùng script tự động:
+
+### Cài đặt & chạy nhanh (copy & run)
+
+**Cài đặt MCP server + cấu hình IDE (lần đầu):**
+
+```bash
+# Tiếng Việt
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/install_vi.sh | bash
+
+# English
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/install.sh | bash
+```
+
+**Cấu hình biến knowledge (sau khi đã cài):**
+
+```bash
+# Tiếng Việt
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/setup_env_vi.sh | bash
+
+# English
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/setup_env.sh | bash
+```
+
+**Cập nhật lên bản mới nhất:**
+
+```bash
+# Tiếng Việt
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/update_vi.sh | bash
+
+# English
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/update.sh | bash
+```
+
+> **Lưu ý:** Nếu muốn xem nội dung script trước khi chạy, thay `| bash` bằng `| less`
+
+**Hoặc nếu đã clone repo, chạy trực tiếp:**
+
+```bash
+# Tiếng Việt
+./setup_env_vi.sh
+
+# English
+./setup_env.sh
+```
+
+### Script làm gì?
+
+1. **Tự động tìm** MCP server đã cài (thư mục hiện tại hoặc `~/.webcake-cms-mcp`)
+2. **Hỏi bạn** 3 biến môi trường knowledge:
+
+| Biến | Mô tả | Bắt buộc |
+|------|--------|----------|
+| `WEBCAKE_KNOWLEDGE_DIR` | Thư mục chứa file knowledge local | Không (mặc định: `knowledge/`) |
+| `WEBCAKE_KNOWLEDGE_REPO` | GitHub repo chứa knowledge | Không |
+| `WEBCAKE_KNOWLEDGE_TOKEN` | GitHub token cho repo private | Không (repo public không cần) |
+
+3. **Tự phát hiện** các IDE đã cấu hình webcake-cms (Claude Desktop, Claude Code, Cursor, Windsurf, Augment, Codex)
+4. **Gộp thêm** biến mới vào config hiện có — không ghi đè các biến cũ (API URL, token, site_id...)
+
+### Ví dụ luồng chạy
+
+```
+$ ./setup_env_vi.sh
+
+╔══════════════════════════════════════════════════════╗
+║  WebCake CMS MCP - Cấu hình biến môi trường        ║
+╚══════════════════════════════════════════════════════╝
+
+[OK] MCP server tại /Users/you/.webcake-cms-mcp
+[OK] Node.js v20.11.0
+
+── Cấu hình Knowledge ──
+
+  WEBCAKE_KNOWLEDGE_DIR (Enter = mặc định): ↵
+  WEBCAKE_KNOWLEDGE_REPO (Enter để bỏ qua): mycompany/store-knowledge
+  WEBCAKE_KNOWLEDGE_TOKEN (Enter để bỏ qua): ghp_abc123...
+
+── Cập nhật cấu hình IDE ──
+
+  ✓ Claude Code         (~/.claude.json)
+  ✓ Cursor              (~/.cursor/mcp.json)
+
+  Cập nhật tất cả IDE đã tìm thấy? (C/k): C
+
+[OK] Claude Code đã cập nhật
+[OK] Cursor đã cập nhật
+
+  Cấu hình biến môi trường hoàn tất!
+```
+
+### Khi nào cần chạy lại?
+
+- Thay đổi thư mục knowledge local
+- Đổi sang GitHub repo khác
+- Cập nhật GitHub token (hết hạn)
+- Thêm IDE mới (cài Cursor, Windsurf... sau khi đã setup)
+
+### Tất cả biến môi trường
+
+```
+Bắt buộc (set qua install_vi.sh):
+  WEBCAKE_API_URL          — URL API backend
+  WEBCAKE_TOKEN            — JWT Bearer token
+  WEBCAKE_SESSION_ID       — Session ID
+  WEBCAKE_SITE_ID          — ID site đích
+
+Tuỳ chọn (set qua setup_env_vi.sh):
+  WEBCAKE_KNOWLEDGE_DIR    — Thư mục chứa knowledge files
+  WEBCAKE_KNOWLEDGE_REPO   — GitHub repo (owner/repo hoặc URL đầy đủ)
+  WEBCAKE_KNOWLEDGE_TOKEN  — GitHub token (cho repo private)
+```
