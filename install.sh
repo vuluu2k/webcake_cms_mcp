@@ -2,7 +2,7 @@
 
 # ═══════════════════════════════════════════════════════════
 #  WebCake CMS MCP Server - Auto Installer
-#  Supports: Claude Desktop, Claude Code, Cursor, Windsurf, Augment
+#  Supports: Claude Desktop, Claude Code, Cursor, Windsurf, Augment, Codex
 # ═══════════════════════════════════════════════════════════
 
 set -e
@@ -446,6 +446,43 @@ JSONEOF
   warn "Open VS Code > Cmd+Shift+P > 'Augment: Edit MCP Settings' and paste the config above"
 }
 
+configure_codex() {
+  info "Configuring Codex (OpenAI)..."
+
+  CODEX_DIR="$HOME/.codex"
+  CODEX_CONFIG="$CODEX_DIR/config.toml"
+  mkdir -p "$CODEX_DIR"
+
+  # Build the TOML block for webcake-cms
+  TOML_BLOCK=$(cat << TOMLEOF
+
+[mcp_servers.webcake-cms]
+command = "$NODE_BIN"
+args = ["$MCP_INDEX"]
+env = { "WEBCAKE_API_URL" = "$API_URL", "WEBCAKE_TOKEN" = "$TOKEN", "WEBCAKE_SITE_ID" = "$SITE_ID" }
+TOMLEOF
+)
+
+  if [ -f "$CODEX_CONFIG" ]; then
+    if grep -q '\[mcp_servers\.webcake-cms\]' "$CODEX_CONFIG" 2>/dev/null; then
+      # Remove existing webcake-cms block (from [mcp_servers.webcake-cms] to next [section] or EOF)
+      node -e "
+        const fs = require('fs');
+        let content = fs.readFileSync('$CODEX_CONFIG', 'utf8');
+        content = content.replace(/\\n?\\[mcp_servers\\.webcake-cms\\][\\s\\S]*?(?=\\n\\[|$)/, '');
+        fs.writeFileSync('$CODEX_CONFIG', content.trimEnd() + '\\n');
+      " 2>/dev/null
+      info "Replacing existing webcake-cms config..."
+    fi
+    echo "$TOML_BLOCK" >> "$CODEX_CONFIG"
+  else
+    echo "# WebCake CMS MCP Server" > "$CODEX_CONFIG"
+    echo "$TOML_BLOCK" >> "$CODEX_CONFIG"
+  fi
+
+  success "Codex configured ($CODEX_CONFIG)"
+}
+
 # ── IDE Selection Menu ──
 
 select_ides() {
@@ -457,7 +494,8 @@ select_ides() {
   echo "  3) Cursor"
   echo "  4) Windsurf"
   echo "  5) Augment (VS Code)"
-  echo "  6) All of the above"
+  echo "  6) Codex (OpenAI)"
+  echo "  7) All of the above"
   echo "  0) Skip (manual setup later)"
   echo ""
   read -rp "  Choose (comma-separated, e.g. 1,2): " IDE_CHOICE
@@ -472,12 +510,14 @@ select_ides() {
       3) configure_cursor ;;
       4) configure_windsurf ;;
       5) configure_augment ;;
-      6)
+      6) configure_codex ;;
+      7)
         configure_claude_desktop
         configure_claude_code
         configure_cursor
         configure_windsurf
         configure_augment
+        configure_codex
         ;;
       0) info "Skipping IDE configuration." ;;
       *) warn "Unknown option: $choice" ;;

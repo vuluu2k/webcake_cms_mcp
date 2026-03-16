@@ -37,7 +37,7 @@ curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/instal
 | `--token TOKEN` | JWT Bearer token | *(bắt buộc)* |
 | `--site-id ID` | ID của site | *(bắt buộc)* |
 | `--api-url URL` | URL API | `https://api.storecake.io` |
-| `--ide IDE` | IDE cần cấu hình: `claude-desktop`, `claude`, `cursor`, `windsurf`, `augment`, `all` | `all` |
+| `--ide IDE` | IDE cần cấu hình: `claude-desktop`, `claude`, `cursor`, `windsurf`, `augment`, `codex`, `all` | `all` |
 | `--dir PATH` | Thư mục cài đặt | `~/.webcake-cms-mcp` |
 | `--uninstall` | Gỡ MCP server và config IDE | — |
 
@@ -301,6 +301,33 @@ Hoặc cấu hình global tại `~/.cursor/mcp.json`.
 ```
 
 **Bước 4:** Restart VS Code. Trong Augment chat panel sẽ thấy các tools MCP.
+
+---
+
+### 6. Codex (OpenAI CLI)
+
+Thêm vào file `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.webcake-cms]
+command = "node"
+args = ["/đường-dẫn-tuyệt-đối/webcake_cms_mcp/index.js"]
+env = { "WEBCAKE_API_URL" = "https://api.storecake.io", "WEBCAKE_TOKEN" = "<token-của-bạn>", "WEBCAKE_SITE_ID" = "<site-id-của-bạn>" }
+```
+
+Hoặc dùng CLI:
+```bash
+codex mcp add webcake-cms \
+  --env WEBCAKE_API_URL=https://api.storecake.io \
+  --env WEBCAKE_TOKEN=<token-của-bạn> \
+  --env WEBCAKE_SITE_ID=<site-id-của-bạn> \
+  -- node /đường-dẫn-tuyệt-đối/webcake_cms_mcp/index.js
+```
+
+Kiểm tra:
+```bash
+codex mcp list
+```
 
 ---
 

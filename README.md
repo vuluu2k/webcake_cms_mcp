@@ -37,7 +37,7 @@ curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/instal
 | `--token TOKEN` | JWT Bearer token | *(required)* |
 | `--site-id ID` | Target site ID | *(required)* |
 | `--api-url URL` | API base URL | `https://api.storecake.io` |
-| `--ide IDE` | IDE to configure: `claude-desktop`, `claude`, `cursor`, `windsurf`, `augment`, `all` | `all` |
+| `--ide IDE` | IDE to configure: `claude-desktop`, `claude`, `cursor`, `windsurf`, `augment`, `codex`, `all` | `all` |
 | `--dir PATH` | Install directory | `~/.webcake-cms-mcp` |
 | `--uninstall` | Remove MCP server and IDE configs | — |
 
@@ -283,6 +283,33 @@ Open Command Palette: `Cmd + Shift + P` > **"Augment: Edit MCP Settings"**, then
 ```
 
 Restart VS Code.
+
+---
+
+### 6. Codex (OpenAI CLI)
+
+Add to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.webcake-cms]
+command = "node"
+args = ["/absolute-path/webcake_cms_mcp/index.js"]
+env = { "WEBCAKE_API_URL" = "https://api.storecake.io", "WEBCAKE_TOKEN" = "<your-token>", "WEBCAKE_SITE_ID" = "<your-site-id>" }
+```
+
+Or via CLI:
+```bash
+codex mcp add webcake-cms \
+  --env WEBCAKE_API_URL=https://api.storecake.io \
+  --env WEBCAKE_TOKEN=<your-token> \
+  --env WEBCAKE_SITE_ID=<your-site-id> \
+  -- node /absolute-path/webcake_cms_mcp/index.js
+```
+
+Verify:
+```bash
+codex mcp list
+```
 
 ---
 

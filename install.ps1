@@ -1,6 +1,6 @@
 # ═══════════════════════════════════════════════════════════
 #  WebCake CMS MCP Server - Installer (Windows PowerShell)
-#  Supports: Claude Desktop, Claude Code, Cursor, Windsurf, Augment
+#  Supports: Claude Desktop, Claude Code, Cursor, Windsurf, Augment, Codex
 # ═══════════════════════════════════════════════════════════
 
 $ErrorActionPreference = "Stop"
@@ -193,6 +193,36 @@ function Configure-Augment {
     Write-Host "  [WARN] Open VS Code > Ctrl+Shift+P > 'Augment: Edit MCP Settings'" -ForegroundColor Yellow
 }
 
+function Configure-Codex {
+    Write-Host "  [INFO] Configuring Codex (OpenAI)..." -ForegroundColor Blue
+    $codexDir = "$env:USERPROFILE\.codex"
+    $configPath = "$codexDir\config.toml"
+    if (-not (Test-Path $codexDir)) { New-Item -ItemType Directory -Path $codexDir -Force | Out-Null }
+
+    $tomlBlock = @"
+
+[mcp_servers.webcake-cms]
+command = "$($script:NodeBin -replace '\\', '/')"
+args = ["$($script:McpIndex -replace '\\', '/')"]
+env = { "WEBCAKE_API_URL" = "$script:ApiUrl", "WEBCAKE_TOKEN" = "$script:Token", "WEBCAKE_SITE_ID" = "$script:SiteId" }
+"@
+
+    if ((Test-Path $configPath) -and (Get-Item $configPath).Length -gt 0) {
+        $content = Get-Content $configPath -Raw
+        if ($content -match '\[mcp_servers\.webcake-cms\]') {
+            # Remove existing block
+            $content = $content -replace '(?s)\n?\[mcp_servers\.webcake-cms\].*?(?=\n\[|$)', ''
+            $content = $content.TrimEnd() + "`n"
+        }
+        $content += $tomlBlock
+        Set-Content $configPath -Value $content -Encoding UTF8
+    } else {
+        "# WebCake CMS MCP Server`n$tomlBlock" | Set-Content $configPath -Encoding UTF8
+    }
+
+    Write-Host "  [OK] Codex configured ($configPath)" -ForegroundColor Green
+}
+
 # ── IDE Selection ──
 
 function Select-Ides {
@@ -204,7 +234,8 @@ function Select-Ides {
     Write-Host "  3) Cursor"
     Write-Host "  4) Windsurf"
     Write-Host "  5) Augment (VS Code)"
-    Write-Host "  6) All of the above"
+    Write-Host "  6) Codex (OpenAI)"
+    Write-Host "  7) All of the above"
     Write-Host "  0) Skip"
     Write-Host ""
     $choices = Read-Host "  Choose (comma-separated, e.g. 1,2)"
@@ -216,12 +247,14 @@ function Select-Ides {
             "3" { Configure-Cursor }
             "4" { Configure-Windsurf }
             "5" { Configure-Augment }
-            "6" {
+            "6" { Configure-Codex }
+            "7" {
                 Configure-ClaudeDesktop
                 Configure-ClaudeCode
                 Configure-Cursor
                 Configure-Windsurf
                 Configure-Augment
+                Configure-Codex
             }
             "0" { Write-Host "  [INFO] Skipping IDE configuration." -ForegroundColor Blue }
             default { Write-Host "  [WARN] Unknown option: $choice" -ForegroundColor Yellow }
