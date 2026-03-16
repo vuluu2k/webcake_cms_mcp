@@ -271,6 +271,16 @@ export class WebcakeCmsApi {
     return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/promotion_advance/get_promotions_advance`, { query });
   }
 
+  // ── Combos ──
+
+  listCombos(query) {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/combo_product/all`, { query });
+  }
+
+  getComboItems(comboProductId, query) {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/combo_product/items`, { query: { combo_product_id: comboProductId, ...query } });
+  }
+
   // ── Customers ──
 
   findCustomerById(id) {

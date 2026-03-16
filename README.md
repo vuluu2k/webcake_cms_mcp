@@ -1019,6 +1019,57 @@ search_promotions({ type: "coupon", status: 2, is_activated: true })
 
 ---
 
+### Combo / Bundle Products
+
+#### List combos — `list_combos`
+
+Returns combo **metadata** — name, discount type, schedule. Use `include_guide=true` for combo type reference.
+
+```
+list_combos({ page: 1, limit: 20, include_guide: true })
+→ {
+    data: [
+      { id: "combo_1", name: "Summer Bundle", is_activated: true,
+        is_variation: false, discount_amount: 50000,
+        start_time: "2025-06-01", end_time: "2025-06-30" },
+      { id: "combo_2", name: "Buy 3 Get 1 Free", is_activated: true,
+        is_categories: true, is_use_percent: true, discount_by_percent: 25 },
+    ],
+    total: 4,
+    guide: "## Combo Product Types..."
+  }
+```
+
+**Combo types:**
+- `is_variation=true` — Variation-based: requires specific product variations
+- `is_variation=false` — Product-based: requires specific products (any variation)
+- `is_categories=true` — Category-based: requires items from categories with quantities
+
+**Discount types:**
+- `discount_amount` — Fixed amount off
+- `is_use_percent=true` + `discount_by_percent` — Percentage off (capped by `max_discount_by_percent`)
+- `is_value_combo=true` + `value_combo` — Fixed total price for combo
+- `is_free_shipping=true` — Free shipping included
+
+#### Get combo items — `get_combo_items`
+
+Returns the products/variations that compose the combo and any bonus/gift products.
+
+```
+get_combo_items({ combo_product_id: "combo_1" })
+→ {
+    combo_items: [
+      { id: "item_1", product: { name: "T-Shirt" }, count: 2 },
+      { id: "item_2", product: { name: "Shorts" }, count: 1 },
+    ],
+    bonus_items: [
+      { id: "bonus_1", product: { name: "Free Socks" }, quantity: 1 }
+    ]
+  }
+```
+
+---
+
 ### Site Style & Theme
 
 #### Site info — `get_site_info`
@@ -1242,6 +1293,12 @@ AI agents will use this knowledge as context when helping with tasks. For exampl
 | `get_promotion_items` | Get products/variations/categories attached to a promotion with discount details |
 | `get_active_promotions` | Get all currently active promotions |
 | `search_promotions` | Search/filter by type, status (coming_soon/in_progress/finished), keyword |
+
+### Combo Products (2 tools)
+| Tool | Description |
+|------|-------------|
+| `list_combos` | List all combo/bundle products (name, discount, schedule, type). `include_guide=true` for type reference |
+| `get_combo_items` | Get combo composition: required items (with quantities) and bonus/gift products |
 
 ### Site Style & Theme (2 tools)
 | Tool | Description |

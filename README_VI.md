@@ -1032,6 +1032,56 @@ search_promotions({ type: "coupon", status: 2, is_activated: true })
 
 ---
 
+### Combo / Sản phẩm combo
+
+#### Danh sách combo — `list_combos`
+
+Trả về **metadata** combo — tên, loại giảm giá, lịch. Dùng `include_guide=true` để xem hướng dẫn.
+
+```
+list_combos({ page: 1, limit: 20, include_guide: true })
+→ {
+    data: [
+      { id: "combo_1", name: "Combo hè", is_activated: true,
+        is_variation: false, discount_amount: 50000,
+        start_time: "2025-06-01", end_time: "2025-06-30" },
+      { id: "combo_2", name: "Mua 3 tặng 1", is_activated: true,
+        is_categories: true, is_use_percent: true, discount_by_percent: 25 },
+    ],
+    total: 4
+  }
+```
+
+**Loại combo:**
+- `is_variation=true` — Theo biến thể: yêu cầu biến thể cụ thể
+- `is_variation=false` — Theo sản phẩm: yêu cầu sản phẩm (bất kỳ biến thể)
+- `is_categories=true` — Theo danh mục: yêu cầu SP từ danh mục với số lượng
+
+**Loại giảm giá:**
+- `discount_amount` — Giảm cố định
+- `is_use_percent` + `discount_by_percent` — Giảm theo %, giới hạn bởi `max_discount_by_percent`
+- `is_value_combo` + `value_combo` — Giá cố định cho cả combo (đồng giá)
+- `is_free_shipping` — Miễn phí vận chuyển
+
+#### Chi tiết combo — `get_combo_items`
+
+Lấy sản phẩm/biến thể cấu thành combo và sản phẩm quà tặng kèm.
+
+```
+get_combo_items({ combo_product_id: "combo_1" })
+→ {
+    combo_items: [
+      { product: { name: "Áo thun" }, count: 2 },
+      { product: { name: "Quần short" }, count: 1 },
+    ],
+    bonus_items: [
+      { product: { name: "Vớ miễn phí" }, quantity: 1 }
+    ]
+  }
+```
+
+---
+
 ### Giao diện & Theme
 
 #### Thông tin site — `get_site_info`
@@ -1255,6 +1305,12 @@ AI agent sẽ dùng knowledge này làm ngữ cảnh khi hỗ trợ. Ví dụ: n
 | `get_promotion_items` | Lấy sản phẩm/biến thể/danh mục trong khuyến mãi với chi tiết giảm giá |
 | `get_active_promotions` | Lấy tất cả khuyến mãi đang hoạt động |
 | `search_promotions` | Tìm/lọc theo loại, trạng thái (sắp diễn ra/đang diễn ra/đã kết thúc), từ khóa |
+
+### Combo sản phẩm (2 tools)
+| Tool | Mô tả |
+|------|-------|
+| `list_combos` | Liệt kê combo (tên, giảm giá, lịch, loại). `include_guide=true` để xem hướng dẫn |
+| `get_combo_items` | Lấy sản phẩm cấu thành combo (số lượng) và quà tặng kèm |
 
 ### Giao diện & Theme (2 tools)
 | Tool | Mô tả |
