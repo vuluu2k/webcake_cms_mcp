@@ -499,7 +499,8 @@ send_mail({
 
 ### Pages
 - `list_pages` - List all pages (metadata only)
-- `get_page_source` - Get page source structure (CSS classes, element types)
+- `get_page_source` - Get page source overview (element types, custom classes)
+- `search_page_elements` - Search elements by type, class, text, bind
 - `create_page` - Create a page
 - `update_page` - Update page properties
 - `get_site_custom_code` - Read current CSS/JS custom code for the site

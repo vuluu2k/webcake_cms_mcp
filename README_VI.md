@@ -534,7 +534,8 @@ send_mail({
 
 ### Quản lý trang (Pages)
 - `list_pages` - Liệt kê tất cả trang (chỉ metadata)
-- `get_page_source` - Lấy cấu trúc source trang (CSS classes, element types)
+- `get_page_source` - Xem tổng quan source trang (element types, custom classes)
+- `search_page_elements` - Tìm kiếm elements theo type, class, text, bind
 - `create_page` - Tạo trang mới
 - `update_page` - Cập nhật thuộc tính trang
 - `get_site_custom_code` - Đọc CSS/JS custom code hiện tại của site

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { CUSTOM_CODE_GUIDE } from "../guides.js";
 
 /**
- * Extract a compact flat list from page source JSON.
+ * Page source utilities.
  *
  * Source structure (from builder):
  *   { sections: [{ id, type, style, config, specials, children: [...] }] }
@@ -11,54 +11,129 @@ import { CUSTOM_CODE_GUIDE } from "../guides.js";
  *   - Sections: <section id="SECTION-1" class="x-section {custom_class}">
  *   - Elements: <div id="TEXT-1" class="x-element {custom_class}">
  *   - custom_class comes from specials.custom_class (comma-separated)
- *
- * Returns a flat list of all elements (id, type, custom_class) — no nested tree.
+ *   - custom_css comes from specials.custom_css (element-scoped CSS)
+ *   - style object generates scoped CSS via #ELEMENT-ID { ... }
  */
-function extractSourceInfo(sourceJson) {
-  let source;
+
+function parseSource(sourceJson) {
   try {
-    source = typeof sourceJson === "string" ? JSON.parse(sourceJson) : sourceJson;
+    return typeof sourceJson === "string" ? JSON.parse(sourceJson) : sourceJson;
   } catch {
     return null;
   }
-  if (!source || !source.sections) return null;
+}
 
-  const elements = [];
-
+/** Walk all nodes in source tree, call fn(node) for each */
+function walkSource(source, fn) {
+  if (!source || !source.sections) return;
   function walk(node) {
     if (!node) return;
-    const type = node.type || "unknown";
-    const id = node.id || "";
-
-    const entry = { id, type };
-
-    // Extract custom classes from specials.custom_class
-    const cc = node.specials && node.specials.custom_class;
-    if (cc) {
-      const classes = cc.split(",").map((s) => s.trim()).filter(Boolean);
-      if (classes.length) entry.custom_class = classes;
-    }
-
-    // Include specials hints for context
-    if (node.specials) {
-      if (node.specials.global) entry.global = node.specials.global;
-      if (node.specials.bind) entry.bind = node.specials.bind;
-    }
-
-    elements.push(entry);
-
-    // Recurse all children — no depth limit
+    fn(node);
     const children = node.children || [];
-    for (const child of children) {
-      walk(child);
+    for (const child of children) walk(child);
+  }
+  for (const section of source.sections) walk(section);
+}
+
+/** Build overview: section count, element type counts, all custom_classes */
+function buildOverview(source) {
+  const typeCounts = {};
+  const customClasses = new Set();
+  let total = 0;
+
+  walkSource(source, (node) => {
+    total++;
+    const type = node.type || "unknown";
+    typeCounts[type] = (typeCounts[type] || 0) + 1;
+    const cc = node.specials && node.specials.custom_class;
+    if (cc) cc.split(",").map((s) => s.trim()).filter(Boolean).forEach((c) => customClasses.add(c));
+  });
+
+  return {
+    sections_count: (source.sections || []).length,
+    total_elements: total,
+    element_types: typeCounts,
+    custom_classes: [...customClasses].sort(),
+  };
+}
+
+/** Build full detail for a single node — all properties except children tree */
+function nodeToDetail(node) {
+  const entry = { id: node.id || "", type: node.type || "unknown" };
+
+  // Core properties
+  if (node.style && Object.keys(node.style).length) entry.style = node.style;
+  if (node.config && Object.keys(node.config).length) entry.config = node.config;
+  if (node.specials && Object.keys(node.specials).length) entry.specials = node.specials;
+
+  // Events (click, submit, mouseenter, etc.)
+  if (node.events && node.events.length) entry.events = node.events;
+
+  // Data bindings (product, category, blog, etc.)
+  if (node.bindings && node.bindings.length) entry.bindings = node.bindings;
+
+  // Responsive breakpoint overrides (keys like "bp_768_1024", etc.)
+  for (const key of Object.keys(node)) {
+    if (key.startsWith("bp_") && node[key] && typeof node[key] === "object") {
+      if (!entry.responsive) entry.responsive = {};
+      entry.responsive[key] = node[key];
     }
   }
 
-  for (const section of source.sections) {
-    walk(section);
-  }
+  if (node.children && node.children.length) entry.children_count = node.children.length;
 
-  return elements;
+  return entry;
+}
+
+/** Search/filter elements in source by criteria */
+function searchElements(source, filters) {
+  const results = [];
+  const limit = filters.limit || 50;
+
+  walkSource(source, (node) => {
+    if (results.length >= limit) return;
+
+    // Filter by type
+    if (filters.type && node.type !== filters.type) return;
+
+    // Filter by id (substring match)
+    if (filters.id) {
+      const nodeId = (node.id || "").toLowerCase();
+      if (!nodeId.includes(filters.id.toLowerCase())) return;
+    }
+
+    // Filter by custom_class
+    if (filters.custom_class) {
+      const cc = (node.specials && node.specials.custom_class) || "";
+      if (!cc.toLowerCase().includes(filters.custom_class.toLowerCase())) return;
+    }
+
+    // Filter by text content (substring match)
+    if (filters.text) {
+      const text = (node.specials && node.specials.text) || "";
+      if (!text.toLowerCase().includes(filters.text.toLowerCase())) return;
+    }
+
+    // Filter: has_custom_class — only elements with custom class
+    if (filters.has_custom_class) {
+      const cc = node.specials && node.specials.custom_class;
+      if (!cc) return;
+    }
+
+    // Filter: has_bind — only data-bound elements
+    if (filters.has_bind) {
+      if (!(node.bindings && node.bindings.length) && !(node.specials && node.specials.bind)) return;
+    }
+
+    // Filter: has_events — only elements with events
+    if (filters.has_events) {
+      if (!(node.events && node.events.length)) return;
+    }
+
+    results.push(nodeToDetail(node));
+  });
+
+  return results;
 }
 
 export function registerPageTools(server, api, handle) {
@@ -81,7 +156,7 @@ export function registerPageTools(server, api, handle) {
 
   server.tool(
     "get_page_source",
-    "Get page source structure for a specific page. Returns CSS classes and element types used on the page — useful before writing custom CSS/JS to target actual elements",
+    "Get page source overview: section count, element type counts, and all custom CSS classes. Use this first, then use search_page_elements to find specific elements",
     {
       page_id: z.string().describe("Page ID"),
     },
@@ -92,14 +167,50 @@ export function registerPageTools(server, api, handle) {
         const page = Array.isArray(pages) ? pages.find((p) => p.id === page_id) : null;
         if (!page) return { error: "Page not found" };
 
-        const sourceData = page.source && page.source.source;
-        const elements = extractSourceInfo(sourceData);
+        const source = parseSource(page.source && page.source.source);
+        const overview = source ? buildOverview(source) : null;
         return {
           page: { id: page.id, name: page.name, slug: page.slug, type: page.type },
           custom_code: (page.source && page.source.custom_code) || null,
-          elements,
-          hint: "Target elements via CSS: #ELEMENT-ID or .custom-class. All elements render with class 'x-element', sections with 'x-section'.",
+          overview,
+          hint: "Use search_page_elements to query specific elements by type, class, text, etc. Target via CSS: #ELEMENT-ID or .custom-class. Sections have class 'x-section', elements have 'x-element'.",
         };
+      })
+  );
+
+  server.tool(
+    "search_page_elements",
+    `Search/filter elements within a page source. Returns matching elements with full detail (id, type, style, text, classes, etc.).
+Examples:
+- Find all buttons: type="button"
+- Find elements with custom class: custom_class="hero"
+- Find text containing "subscribe": text="subscribe"
+- Find all data-bound elements: has_bind=true
+- Find all elements with events: has_events=true
+- Find all elements with custom CSS classes: has_custom_class=true`,
+    {
+      page_id: z.string().describe("Page ID"),
+      type: z.string().optional().describe("Filter by element type (e.g. 'text', 'button', 'image', 'container', 'section', 'form', 'input')"),
+      id: z.string().optional().describe("Filter by element ID substring (e.g. 'TEXT', 'BUTTON-3')"),
+      custom_class: z.string().optional().describe("Filter by custom class substring"),
+      text: z.string().optional().describe("Filter by text content substring"),
+      has_custom_class: z.boolean().optional().describe("Only elements that have a custom class"),
+      has_bind: z.boolean().optional().describe("Only elements with data bindings (product, category, blog)"),
+      has_events: z.boolean().optional().describe("Only elements with events (click, submit, mouseenter, etc.)"),
+      limit: z.number().default(50).describe("Max results (default 50)"),
+    },
+    ({ page_id, ...filters }) =>
+      handle(async () => {
+        const res = await api.listPages();
+        const pages = (res && res.data) || res || [];
+        const page = Array.isArray(pages) ? pages.find((p) => p.id === page_id) : null;
+        if (!page) return { error: "Page not found" };
+
+        const source = parseSource(page.source && page.source.source);
+        if (!source) return { error: "Page has no source" };
+
+        const results = searchElements(source, filters);
+        return { page_id, matched: results.length, elements: results };
       })
   );
 
