@@ -35,9 +35,11 @@ export function registerCmsFileTools(server, api, handle) {
 
   server.tool(
     "get_http_function",
-    "Get the main HTTP function file. Returns current code, collection schemas, and a coding guide. Always call this before writing/updating HTTP functions",
-    {},
-    () =>
+    "Get the main HTTP function file. Returns current code and collection schemas. Add include_guide=true on first call to get the coding guide",
+    {
+      include_guide: z.boolean().default(false).describe("Include the HTTP function coding guide (only needed on first call)"),
+    },
+    ({ include_guide }) =>
       handle(async () => {
         const [httpFunc, collections] = await Promise.all([
           api.getHttpFunction(),
@@ -53,7 +55,9 @@ export function registerCmsFileTools(server, api, handle) {
             reference: f.reference || undefined,
           })),
         }));
-        return { guide: HTTP_FUNCTION_GUIDE, http_function: httpFunc, collections: schemas };
+        const res = { http_function: httpFunc, collections: schemas };
+        if (include_guide) res.guide = HTTP_FUNCTION_GUIDE;
+        return res;
       })
   );
 

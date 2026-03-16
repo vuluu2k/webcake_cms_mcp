@@ -22,7 +22,7 @@ const api = new WebcakeCmsApi({ baseUrl: BASE_URL, token: TOKEN, siteId: SITE_ID
 const server = new McpServer({ name: "webcake-cms", version: "1.0.0" });
 
 function result(data) {
-  return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+  return { content: [{ type: "text", text: JSON.stringify(data) }] };
 }
 
 async function handle(fn) {

@@ -242,19 +242,22 @@ Examples:
 
   server.tool(
     "get_site_custom_code",
-    "Get current custom code of the site (CSS/JS) with coding guide. Always call this before writing/updating custom code to avoid overwriting existing code",
-    {},
-    () =>
+    "Get current custom code of the site (CSS/JS). Always call this before writing/updating custom code to avoid overwriting existing code. Add include_guide=true on first call to get the coding guide",
+    {
+      include_guide: z.boolean().default(false).describe("Include the custom code coding guide (only needed on first call)"),
+    },
+    ({ include_guide }) =>
       handle(async () => {
         const siteRes = await api.getSite();
         const s = (siteRes && siteRes.data && siteRes.data.settings) || {};
-        return {
-          guide: CUSTOM_CODE_GUIDE,
+        const res = {
           code_before_head: s.code_before_head || "",
           code_before_body: s.code_before_body || "",
           code_custom_css: s.code_custom_css || "",
           code_custom_javascript: s.code_custom_javascript || "",
         };
+        if (include_guide) res.guide = CUSTOM_CODE_GUIDE;
+        return res;
       })
   );
 

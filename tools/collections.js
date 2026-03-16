@@ -3,14 +3,28 @@ import { z } from "zod";
 export function registerCollectionTools(server, api, handle) {
   server.tool(
     "list_collections",
-    "List all database collections (tables) for the site. Returns collection names, schemas (field definitions with types), and record counts. Useful for understanding the data model before writing HTTP functions",
+    "List all database collections (tables) for the site. Returns collection names, table names, and field counts. Use get_collection for full schema details",
     {
       page: z.number().optional().describe("Page number"),
       limit: z.number().optional().describe("Items per page"),
       term: z.string().optional().describe("Search by collection name"),
     },
     ({ page, limit, term }) =>
-      handle(() => api.listCollections({ page, limit, term }))
+      handle(async () => {
+        const res = await api.listCollections({ page, limit, term });
+        const collections = (res && res.data) || res || [];
+        if (!Array.isArray(collections)) return res;
+        return {
+          data: collections.map((c) => ({
+            id: c.id || c._id,
+            name: c.name,
+            table_name: c.table_name,
+            fields_count: (c.schema || []).length,
+            records_count: c.records_count || undefined,
+          })),
+          total: res.total || collections.length,
+        };
+      })
   );
 
   server.tool(
