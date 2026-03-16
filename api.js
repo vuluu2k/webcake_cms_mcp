@@ -1,10 +1,11 @@
 const DEFAULT_TIMEOUT = 15000;
 
 export class WebcakeCmsApi {
-  constructor({ baseUrl, token, siteId }) {
+  constructor({ baseUrl, token, siteId, sessionId }) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.token = token;
     this.siteId = siteId;
+    this.sessionId = sessionId || "";
     this._adminToken = null;
     this._cmsApiKey = null;
   }
@@ -36,6 +37,7 @@ export class WebcakeCmsApi {
     const headers = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${this.token}`,
+      ...(this.sessionId && { "x-session-id": this.sessionId }),
     };
 
     const controller = new AbortController();
@@ -88,6 +90,11 @@ export class WebcakeCmsApi {
     this.token = token;
     this._adminToken = null;
     this._cmsApiKey = null;
+  }
+
+  /** Update session ID */
+  switchSession(sessionId) {
+    this.sessionId = sessionId;
   }
 
   // ── CMS Files ──

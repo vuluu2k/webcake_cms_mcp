@@ -14,45 +14,25 @@ Chạy script tự động — tự clone, cài dependencies, cấu hình IDE ch
 
 Nếu đã clone repo:
 ```bash
-./install.sh
+./install_vi.sh
 ```
 
 Hoặc tải về rồi chạy:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/install.sh -o install.sh && bash install.sh
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/install_vi.sh -o install_vi.sh && bash install_vi.sh
 ```
 
-**Cách B — Không tương tác** (chạy qua `curl` pipe hoặc CI):
+Script sẽ hướng dẫn bạn:
+1. Cài Node.js (nếu chưa có)
+2. Clone MCP server
+3. Nhập thông tin kết nối (token, session_id, site_id — **đều có thể bỏ qua**, set sau qua AI)
+4. Chọn IDE để cấu hình
 
+> **Cách lấy token & session_id:** Đăng nhập dashboard WebCake → F12 DevTools → tab Network → click bất kỳ trang → copy header `Authorization: Bearer ...` (token) và `x-session-id` (session_id)
+
+**Gỡ cài đặt:**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/install.sh | bash -s -- \
-  --token TOKEN_CUA_BAN \
-  --site-id SITE_ID_CUA_BAN
-```
-
-**Danh sách flags:**
-
-| Flag | Mô tả | Mặc định |
-|------|--------|----------|
-| `--token TOKEN` | JWT Bearer token | *(bắt buộc)* |
-| `--site-id ID` | ID của site | *(bắt buộc)* |
-| `--api-url URL` | URL API | `https://api.storecake.io` |
-| `--ide IDE` | IDE cần cấu hình: `claude-desktop`, `claude`, `cursor`, `windsurf`, `augment`, `codex`, `all` | `all` |
-| `--dir PATH` | Thư mục cài đặt | `~/.webcake-cms-mcp` |
-| `--uninstall` | Gỡ MCP server và config IDE | — |
-
-**Ví dụ:**
-
-```bash
-# Cài và chỉ cấu hình Claude Code
-curl -fsSL .../install.sh | bash -s -- --token abc123 --site-id site_xyz --ide claude
-
-# Cài và cấu hình Cursor + Windsurf
-./install.sh --token abc123 --site-id site_xyz --ide cursor
-./install.sh --token abc123 --site-id site_xyz --ide windsurf
-
-# Gỡ cài đặt
-./install.sh --uninstall
+./install_vi.sh --uninstall
 ```
 
 ### Windows (PowerShell)
@@ -82,17 +62,17 @@ Cập nhật lên phiên bản mới nhất:
 
 ```bash
 # Tự tìm thư mục cài đặt
-~/.webcake-cms-mcp/update.sh
+~/.webcake-cms-mcp/update_vi.sh
 ```
 
 Hoặc chỉ định đường dẫn:
 ```bash
-./update.sh ~/.webcake-cms-mcp
+./update_vi.sh ~/.webcake-cms-mcp
 ```
 
 Hoặc tải về rồi chạy:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/update.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/update_vi.sh | bash
 ```
 
 ### Windows (PowerShell)
@@ -124,24 +104,30 @@ npm install
 
 ## Biến môi trường
 
-| Biến | Mô tả |
-|------|-------|
-| `WEBCAKE_API_URL` | URL gốc của WebCake API (vd: `https://api.storecake.io`) |
-| `WEBCAKE_TOKEN` | JWT Bearer token (xác thực dashboard) |
-| `WEBCAKE_SITE_ID` | ID của site cần thao tác |
-| `WEBCAKE_KNOWLEDGE_DIR` | *(Tùy chọn)* Đường dẫn thư mục knowledge local (mặc định: `./knowledge`) |
-| `WEBCAKE_KNOWLEDGE_REPO` | *(Tùy chọn)* GitHub repo chứa knowledge (vd: `owner/repo` hoặc URL đầy đủ) |
-| `WEBCAKE_KNOWLEDGE_TOKEN` | *(Tùy chọn)* GitHub token cho repo private |
+| Biến | Bắt buộc | Mô tả |
+|------|----------|-------|
+| `WEBCAKE_API_URL` | Có | URL gốc của WebCake API (vd: `https://api.storecake.io`) |
+| `WEBCAKE_TOKEN` | Không* | JWT Bearer token (xác thực dashboard) |
+| `WEBCAKE_SESSION_ID` | Không* | Session ID (`x-session-id` header) |
+| `WEBCAKE_SITE_ID` | Không* | ID của site cần thao tác |
+| `WEBCAKE_KNOWLEDGE_DIR` | Không | Đường dẫn thư mục knowledge local (mặc định: `./knowledge`) |
+| `WEBCAKE_KNOWLEDGE_REPO` | Không | GitHub repo chứa knowledge (vd: `owner/repo` hoặc URL đầy đủ) |
+| `WEBCAKE_KNOWLEDGE_TOKEN` | Không | GitHub token cho repo private |
+
+> \* Token, session_id, site_id có thể set sau qua tool `update_auth` và `switch_site` trong chat. Khi set qua tool, giá trị được **lưu vào SQLite** (`webcake-mcp.db`) và tự khôi phục ở session tiếp theo.
 
 > CMS admin token và CMS API key được tự động lấy qua API khi cần (không cần cấu hình thủ công).
 
-### Cách lấy `WEBCAKE_TOKEN` và `WEBCAKE_SITE_ID`
+### Cách lấy `WEBCAKE_TOKEN` và `WEBCAKE_SESSION_ID`
 
 1. Mở [WebCake Dashboard](https://storecake.io) và đăng nhập
 2. Mở DevTools (`F12` hoặc `Cmd + Option + I`)
-3. Vào tab **Application** > **Cookies** > `https://storecake.io`
-4. Tìm cookie tên `token` — copy giá trị → đây là `WEBCAKE_TOKEN`
-5. `WEBCAKE_SITE_ID` nằm trong URL dashboard: `https://storecake.io/site/{site_id}/...`
+3. Vào tab **Network** > click bất kỳ trang nào
+4. Tìm một API request (vd: `@me`, `site/all`...)
+5. Trong **Request Headers**:
+   - `Authorization: Bearer ...` → copy phần sau "Bearer " → đây là `WEBCAKE_TOKEN`
+   - `x-session-id: ...` → copy giá trị → đây là `WEBCAKE_SESSION_ID`
+6. `WEBCAKE_SITE_ID` nằm trong URL dashboard: `https://storecake.io/site/{site_id}/...` hoặc dùng tool `list_my_sites` để liệt kê
 
 ---
 
@@ -167,6 +153,7 @@ Mở Settings > Developer > Edit Config, hoặc sửa file trực tiếp:
       "env": {
         "WEBCAKE_API_URL": "https://api.storecake.io",
         "WEBCAKE_TOKEN": "<token-của-bạn>",
+        "WEBCAKE_SESSION_ID": "<session-id-của-bạn>",
         "WEBCAKE_SITE_ID": "<site-id-của-bạn>"
       }
     }
@@ -186,6 +173,7 @@ Chạy lệnh sau trong terminal:
 claude mcp add webcake-cms \
   -e WEBCAKE_API_URL=https://api.storecake.io \
   -e WEBCAKE_TOKEN=<token-của-bạn> \
+  -e WEBCAKE_SESSION_ID=<session-id-của-bạn> \
   -e WEBCAKE_SITE_ID=<site-id-của-bạn> \
   -- node /đường-dẫn-tuyệt-đối/webcake_cms_mcp/index.js
 ```
@@ -201,6 +189,7 @@ Hoặc tạo file `.claude.json` tại thư mục project:
       "env": {
         "WEBCAKE_API_URL": "https://api.storecake.io",
         "WEBCAKE_TOKEN": "<token-của-bạn>",
+        "WEBCAKE_SESSION_ID": "<session-id-của-bạn>",
         "WEBCAKE_SITE_ID": "<site-id-của-bạn>"
       }
     }
@@ -236,6 +225,7 @@ claude mcp list
       "env": {
         "WEBCAKE_API_URL": "https://api.storecake.io",
         "WEBCAKE_TOKEN": "<token-của-bạn>",
+        "WEBCAKE_SESSION_ID": "<session-id-của-bạn>",
         "WEBCAKE_SITE_ID": "<site-id-của-bạn>"
       }
     }
@@ -268,6 +258,7 @@ Hoặc cấu hình global tại `~/.cursor/mcp.json`.
       "env": {
         "WEBCAKE_API_URL": "https://api.storecake.io",
         "WEBCAKE_TOKEN": "<token-của-bạn>",
+        "WEBCAKE_SESSION_ID": "<session-id-của-bạn>",
         "WEBCAKE_SITE_ID": "<site-id-của-bạn>"
       }
     }
@@ -296,6 +287,7 @@ Hoặc cấu hình global tại `~/.cursor/mcp.json`.
       "env": {
         "WEBCAKE_API_URL": "https://api.storecake.io",
         "WEBCAKE_TOKEN": "<token-của-bạn>",
+        "WEBCAKE_SESSION_ID": "<session-id-của-bạn>",
         "WEBCAKE_SITE_ID": "<site-id-của-bạn>"
       }
     }
@@ -315,7 +307,7 @@ Thêm vào file `~/.codex/config.toml`:
 [mcp_servers.webcake-cms]
 command = "node"
 args = ["/đường-dẫn-tuyệt-đối/webcake_cms_mcp/index.js"]
-env = { "WEBCAKE_API_URL" = "https://api.storecake.io", "WEBCAKE_TOKEN" = "<token-của-bạn>", "WEBCAKE_SITE_ID" = "<site-id-của-bạn>" }
+env = { "WEBCAKE_API_URL" = "https://api.storecake.io", "WEBCAKE_TOKEN" = "<token-của-bạn>", "WEBCAKE_SESSION_ID" = "<session-id-của-bạn>", "WEBCAKE_SITE_ID" = "<site-id-của-bạn>" }
 ```
 
 Hoặc dùng CLI:
@@ -1278,6 +1270,14 @@ AI agent sẽ dùng knowledge này làm ngữ cảnh khi hỗ trợ. Ví dụ: n
 ---
 
 ## Danh sách công cụ
+
+### Quản lý kết nối — Context (4 tools)
+| Tool | Mô tả |
+|------|-------|
+| `get_current_context` | Xem site đang kết nối, account, session — gọi đầu tiên để xác nhận đúng site |
+| `list_my_sites` | Liệt kê tất cả sites của account (hỗ trợ tìm kiếm theo tên) |
+| `switch_site` | Đổi sang site khác — lưu vào SQLite, session sau tự nhớ |
+| `update_auth` | Cập nhật token và/hoặc session_id — lưu vào SQLite |
 
 ### CMS Files (12 tools)
 | Tool | Mô tả |

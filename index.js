@@ -15,20 +15,21 @@ import { registerAppTools } from "./tools/apps.js";
 import { registerPromotionTools } from "./tools/promotions.js";
 import { registerComboTools } from "./tools/combos.js";
 import { registerKnowledgeTools } from "./tools/knowledge.js";
-import { registerContextTools, applySavedContext } from "./tools/context.js";
+import { registerContextTools, getSavedConfig } from "./tools/context.js";
 
-const BASE_URL = process.env.WEBCAKE_API_URL;
-const TOKEN = process.env.WEBCAKE_TOKEN;
-const SITE_ID = process.env.WEBCAKE_SITE_ID || "";
+const saved = getSavedConfig();
+const BASE_URL = process.env.WEBCAKE_API_URL || saved.api_url || "";
+const TOKEN = process.env.WEBCAKE_TOKEN || saved.token || "";
+const SITE_ID = process.env.WEBCAKE_SITE_ID || saved.site_id || "";
+const SESSION_ID = process.env.WEBCAKE_SESSION_ID || saved.session_id || "";
 
-if (!BASE_URL || !TOKEN) {
-  console.error("Required env vars: WEBCAKE_API_URL, WEBCAKE_TOKEN");
-  console.error("Optional: WEBCAKE_SITE_ID (can be set later via switch_site tool)");
+if (!BASE_URL) {
+  console.error("Required: WEBCAKE_API_URL (env var or saved in database)");
+  console.error("Use update_auth tool to set token, session_id, site_id after first run");
   process.exit(1);
 }
 
-const api = new WebcakeCmsApi({ baseUrl: BASE_URL, token: TOKEN, siteId: SITE_ID });
-applySavedContext(api); // Restore last-used site_id from ~/.webcake/context.json
+const api = new WebcakeCmsApi({ baseUrl: BASE_URL, token: TOKEN, siteId: SITE_ID, sessionId: SESSION_ID });
 const server = new McpServer({ name: "webcake-cms", version: "1.0.0" });
 
 function result(data) {

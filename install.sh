@@ -183,32 +183,48 @@ collect_env() {
   echo ""
   echo -e "${BOLD}── Environment Configuration ──${NC}"
   echo ""
+  echo -e "  ${YELLOW}How to get token & session_id:${NC}"
+  echo "    1. Login to WebCake/StoreCake dashboard"
+  echo "    2. Open DevTools (F12) > Network tab"
+  echo "    3. Click any page, find an API request"
+  echo "    4. Copy 'Authorization: Bearer ...' header value → token"
+  echo "    5. Copy 'x-session-id' header value → session_id"
+  echo ""
 
   # API URL
   read -rp "  WEBCAKE_API_URL [https://api.storecake.io]: " API_URL
   API_URL="${API_URL:-https://api.storecake.io}"
 
-  # Token
-  while [ -z "$TOKEN" ]; do
-    read -rp "  WEBCAKE_TOKEN (JWT token): " TOKEN
-    if [ -z "$TOKEN" ]; then
-      warn "Token is required. Get it from WebCake dashboard."
-    fi
-  done
+  # Token (optional — can set later via update_auth tool)
+  read -rp "  WEBCAKE_TOKEN (JWT token, Enter to skip): " TOKEN
+  TOKEN="${TOKEN:-}"
 
-  # Site ID
-  while [ -z "$SITE_ID" ]; do
-    read -rp "  WEBCAKE_SITE_ID: " SITE_ID
-    if [ -z "$SITE_ID" ]; then
-      warn "Site ID is required."
-    fi
-  done
+  # Session ID
+  read -rp "  WEBCAKE_SESSION_ID (x-session-id, Enter to skip): " SESSION_ID
+  SESSION_ID="${SESSION_ID:-}"
+
+  # Site ID (optional — can set later via switch_site tool)
+  read -rp "  WEBCAKE_SITE_ID (Enter to skip — choose later via AI): " SITE_ID
+  SITE_ID="${SITE_ID:-}"
 
   echo ""
   success "Configuration:"
-  echo "  API URL : $API_URL"
-  echo "  Token   : ${TOKEN:0:20}..."
-  echo "  Site ID : $SITE_ID"
+  echo "  API URL    : $API_URL"
+  if [ -n "$TOKEN" ]; then
+    echo "  Token      : ${TOKEN:0:20}..."
+  else
+    echo -e "  Token      : ${YELLOW}(not set — use update_auth tool later)${NC}"
+  fi
+  if [ -n "$SESSION_ID" ]; then
+    echo "  Session ID : ${SESSION_ID:0:12}..."
+  else
+    echo -e "  Session ID : ${YELLOW}(not set — use update_auth tool later)${NC}"
+  fi
+  if [ -n "$SITE_ID" ]; then
+    echo "  Site ID    : $SITE_ID"
+  else
+    echo -e "  Site ID    : ${YELLOW}(not set — use switch_site tool later)${NC}"
+  fi
 }
 
 # ── IDE Configuration ──
@@ -220,6 +236,7 @@ configure_claude_code() {
     claude mcp add webcake-cms \
       -e WEBCAKE_API_URL="$API_URL" \
       -e WEBCAKE_TOKEN="$TOKEN" \
+      -e WEBCAKE_SESSION_ID="$SESSION_ID" \
       -e WEBCAKE_SITE_ID="$SITE_ID" \
       -- "$NODE_BIN" "$MCP_INDEX"
     success "Claude Code configured (via CLI)"
@@ -240,6 +257,7 @@ configure_claude_code() {
             env: {
               WEBCAKE_API_URL: '$API_URL',
               WEBCAKE_TOKEN: '$TOKEN',
+              WEBCAKE_SESSION_ID: '$SESSION_ID',
               WEBCAKE_SITE_ID: '$SITE_ID'
             }
           };
@@ -265,6 +283,7 @@ write_claude_config() {
       "env": {
         "WEBCAKE_API_URL": "$API_URL",
         "WEBCAKE_TOKEN": "$TOKEN",
+        "WEBCAKE_SESSION_ID": "$SESSION_ID",
         "WEBCAKE_SITE_ID": "$SITE_ID"
       }
     }
@@ -297,6 +316,7 @@ configure_claude_desktop() {
         env: {
           WEBCAKE_API_URL: '$API_URL',
           WEBCAKE_TOKEN: '$TOKEN',
+          WEBCAKE_SESSION_ID: '$SESSION_ID',
           WEBCAKE_SITE_ID: '$SITE_ID'
         }
       };
@@ -312,6 +332,7 @@ configure_claude_desktop() {
       "env": {
         "WEBCAKE_API_URL": "$API_URL",
         "WEBCAKE_TOKEN": "$TOKEN",
+        "WEBCAKE_SESSION_ID": "$SESSION_ID",
         "WEBCAKE_SITE_ID": "$SITE_ID"
       }
     }
@@ -342,6 +363,7 @@ configure_cursor() {
         env: {
           WEBCAKE_API_URL: '$API_URL',
           WEBCAKE_TOKEN: '$TOKEN',
+          WEBCAKE_SESSION_ID: '$SESSION_ID',
           WEBCAKE_SITE_ID: '$SITE_ID'
         }
       };
@@ -357,6 +379,7 @@ configure_cursor() {
       "env": {
         "WEBCAKE_API_URL": "$API_URL",
         "WEBCAKE_TOKEN": "$TOKEN",
+        "WEBCAKE_SESSION_ID": "$SESSION_ID",
         "WEBCAKE_SITE_ID": "$SITE_ID"
       }
     }
@@ -386,6 +409,7 @@ configure_windsurf() {
         env: {
           WEBCAKE_API_URL: '$API_URL',
           WEBCAKE_TOKEN: '$TOKEN',
+          WEBCAKE_SESSION_ID: '$SESSION_ID',
           WEBCAKE_SITE_ID: '$SITE_ID'
         }
       };
@@ -401,6 +425,7 @@ configure_windsurf() {
       "env": {
         "WEBCAKE_API_URL": "$API_URL",
         "WEBCAKE_TOKEN": "$TOKEN",
+        "WEBCAKE_SESSION_ID": "$SESSION_ID",
         "WEBCAKE_SITE_ID": "$SITE_ID"
       }
     }
@@ -435,6 +460,7 @@ configure_augment() {
       "env": {
         "WEBCAKE_API_URL": "$API_URL",
         "WEBCAKE_TOKEN": "$TOKEN",
+        "WEBCAKE_SESSION_ID": "$SESSION_ID",
         "WEBCAKE_SITE_ID": "$SITE_ID"
       }
     }
@@ -459,7 +485,7 @@ configure_codex() {
 [mcp_servers.webcake-cms]
 command = "$NODE_BIN"
 args = ["$MCP_INDEX"]
-env = { "WEBCAKE_API_URL" = "$API_URL", "WEBCAKE_TOKEN" = "$TOKEN", "WEBCAKE_SITE_ID" = "$SITE_ID" }
+env = { "WEBCAKE_API_URL" = "$API_URL", "WEBCAKE_TOKEN" = "$TOKEN", "WEBCAKE_SESSION_ID" = "$SESSION_ID", "WEBCAKE_SITE_ID" = "$SITE_ID" }
 TOMLEOF
 )
 
@@ -550,11 +576,24 @@ print_summary() {
   echo -e "  Node.js    : ${BOLD}$NODE_BIN${NC}"
   echo -e "  MCP Server : ${BOLD}$MCP_INDEX${NC}"
   echo -e "  API URL    : $API_URL"
-  echo -e "  Site ID    : $SITE_ID"
+  if [ -n "$SITE_ID" ]; then
+    echo -e "  Site ID    : $SITE_ID"
+  fi
   echo ""
   echo -e "  ${BOLD}Next steps:${NC}"
   echo "  1. Restart your IDE"
   echo "  2. Start a conversation and use CMS tools"
+  if [ -z "$TOKEN" ] || [ -z "$SESSION_ID" ]; then
+    echo ""
+    echo -e "  ${YELLOW}Credentials not fully set. In your first chat, ask the AI:${NC}"
+    echo -e "    ${BOLD}\"Update auth with token=... session_id=...\"${NC}"
+    echo "    (get from browser DevTools > Network > any API request headers)"
+  fi
+  if [ -z "$SITE_ID" ]; then
+    echo ""
+    echo -e "  ${YELLOW}Site not set. In your first chat, ask the AI:${NC}"
+    echo -e "    ${BOLD}\"List my sites\"${NC} then ${BOLD}\"Switch to site <name>\"${NC}"
+  fi
   echo ""
   echo -e "  ${BOLD}Test (Claude Code):${NC}"
   echo "    claude mcp list"
@@ -562,7 +601,7 @@ print_summary() {
   echo -e "  ${BOLD}Manual run:${NC}"
   echo "    WEBCAKE_API_URL=$API_URL \\"
   echo "    WEBCAKE_TOKEN=<token> \\"
-  echo "    WEBCAKE_SITE_ID=$SITE_ID \\"
+  echo "    WEBCAKE_SESSION_ID=<session_id> \\"
   echo "    $NODE_BIN $MCP_INDEX"
   echo ""
 }

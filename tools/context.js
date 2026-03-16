@@ -1,15 +1,14 @@
 import { z } from "zod";
 import { getConfig, setConfig } from "../db.js";
 
-/**
- * Apply saved context on startup.
- * Saved site_id overrides env var. Token is NOT saved (security).
- */
-export function applySavedContext(api) {
-  const savedSiteId = getConfig("site_id");
-  if (savedSiteId) {
-    api.switchSite(savedSiteId);
-  }
+/** Read all saved credentials from SQLite for startup */
+export function getSavedConfig() {
+  return {
+    token: getConfig("token") || "",
+    session_id: getConfig("session_id") || "",
+    site_id: getConfig("site_id") || "",
+    api_url: getConfig("api_url") || "",
+  };
 }
 
 // ── Tools ──
@@ -17,7 +16,7 @@ export function applySavedContext(api) {
 export function registerContextTools(server, api, handle) {
   server.tool(
     "get_current_context",
-    "Show current connection context: which site_id, API URL, and account info. Call this first to confirm you're working on the right site",
+    "Show current connection context: which site_id, API URL, session, and account info. Call this first to confirm you're working on the right site",
     {},
     () =>
       handle(async () => {
@@ -29,6 +28,7 @@ export function registerContextTools(server, api, handle) {
         return {
           api_url: api.baseUrl,
           site_id: api.siteId,
+          session_id: api.sessionId || null,
           site_name: site?.data?.name || null,
           site_domain: site?.data?.domain || site?.data?.sub_domain || null,
           account: me?.data
@@ -54,7 +54,9 @@ export function registerContextTools(server, api, handle) {
     ({ page, limit, term }) =>
       handle(async () => {
         const res = await api.listMySites({ page, limit, ...(term && { term }) });
-        const sites = (res?.data || []).map((s) => ({
+        const raw = res?.data?.sites || res?.data || [];
+        const list = Array.isArray(raw) ? raw : [];
+        const sites = list.map((s) => ({
           id: s.id,
           name: s.name,
           domain: s.domain || s.sub_domain || null,
@@ -63,7 +65,7 @@ export function registerContextTools(server, api, handle) {
         return {
           current_site_id: api.siteId,
           sites,
-          total: res?.total_entries || sites.length,
+          total: res?.data?.total_entries || sites.length,
           page,
         };
       })
@@ -106,26 +108,46 @@ Use list_my_sites first to find the site_id`,
   );
 
   server.tool(
-    "update_auth_token",
-    `Update the authentication token. Use this when the current token expires or you need to switch accounts.
-All subsequent API calls will use the new token`,
+    "update_auth",
+    `Update authentication credentials. All values are saved to local database — next session auto-restores them.
+Get token and session_id from browser DevTools → Network tab → copy from any API request headers`,
     {
-      token: z.string().describe("New JWT Bearer token"),
+      token: z.string().optional().describe("JWT Bearer token (from Authorization header)"),
+      session_id: z.string().optional().describe("Session ID (from x-session-id header)"),
+      api_url: z.string().optional().describe("API base URL (e.g. https://api.storecake.io)"),
     },
-    ({ token }) =>
+    ({ token, session_id, api_url }) =>
       handle(async () => {
-        const oldToken = api.token;
-        api.switchToken(token);
+        if (!token && !session_id && !api_url) {
+          throw new Error("Provide at least one of: token, session_id, api_url");
+        }
 
-        // Verify the new token works
+        const oldToken = api.token;
+        const oldSessionId = api.sessionId;
+        const oldBaseUrl = api.baseUrl;
+
+        if (api_url) api.baseUrl = api_url.replace(/\/$/, "");
+        if (token) api.switchToken(token);
+        if (session_id) api.switchSession(session_id);
+
+        // Verify credentials work
         const me = await api.getMe().catch(() => null);
         if (!me?.data) {
-          api.switchToken(oldToken);
-          throw new Error("Invalid token — authentication failed. Token was NOT changed.");
+          // Rollback
+          if (token) api.switchToken(oldToken);
+          if (session_id) api.switchSession(oldSessionId);
+          if (api_url) api.baseUrl = oldBaseUrl;
+          throw new Error("Authentication failed — credentials were NOT changed. Make sure token and session_id are both correct.");
         }
+
+        // Persist all to SQLite
+        if (token) setConfig("token", token);
+        if (session_id) setConfig("session_id", session_id);
+        if (api_url) setConfig("api_url", api.baseUrl);
 
         return {
           updated: true,
+          saved: true,
           account: {
             id: me.data.id,
             email: me.data.email,
