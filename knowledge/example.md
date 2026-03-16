@@ -1,37 +1,252 @@
 ---
-name: Example Knowledge File
-description: Template showing how to create custom knowledge files for AI agents
-tags: example, template
+name: Knowledge Writing Guide
+description: How to write effective knowledge files for AI agents
+tags: guide, template
 ---
 
-# How to Create Knowledge Files
+# Writing Knowledge Files
 
-Place `.md` or `.txt` files in this `knowledge/` directory, or host them on a GitHub repo.
+## File Structure
 
-## Frontmatter (optional)
+Each knowledge file has 2 parts: **frontmatter** (optional metadata) and **content** (the actual knowledge).
 
-```
+```markdown
 ---
-name: My Business Rules
-description: E-commerce business rules and policies
-tags: business, rules
+name: Display Name
+description: Short description shown in list_knowledge
+tags: tag1, tag2
 ---
+
+Your knowledge content here...
 ```
 
-## Use Cases
+### Frontmatter Fields
 
-- **Business rules**: Shipping policies, return policies, pricing rules
-- **Coding standards**: Naming conventions, code review checklist
-- **API documentation**: External API specs, webhook formats
-- **Product guidelines**: Brand tone of voice, content templates
-- **Custom workflows**: Step-by-step processes the AI should follow
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | No | Display name (defaults to filename) |
+| `description` | No | One-line description for quick scanning |
+| `tags` | No | Comma-separated tags for categorization |
 
-## GitHub Repo
+If you omit the frontmatter, the filename becomes the display name.
 
-Set `WEBCAKE_KNOWLEDGE_REPO` to load from a GitHub repo:
+---
 
-```json
-{ "env": { "WEBCAKE_KNOWLEDGE_REPO": "your-org/knowledge-base" } }
+## Content Writing Tips
+
+### 1. Be specific and structured
+
+Bad:
+```
+We have some shipping rules.
 ```
 
-For private repos, also set `WEBCAKE_KNOWLEDGE_TOKEN`.
+Good:
+```markdown
+## Shipping Rules
+
+- Free shipping: orders >= 500,000 VND
+- Standard: 3-5 business days, 30,000 VND
+- Express: 1-2 business days, 60,000 VND
+- Remote areas (list): +20,000 VND surcharge
+- No shipping: fragile items over 50kg
+```
+
+### 2. Use clear headings to separate topics
+
+```markdown
+## Return Policy
+...
+
+## Refund Process
+...
+
+## Exceptions
+...
+```
+
+### 3. Include code examples when relevant
+
+```markdown
+## API Integration - Payment Gateway
+
+Endpoint: POST /api/v1/payments/create
+Headers: X-Api-Key: {key}
+
+Request body:
+​```json
+{
+  "amount": 500000,
+  "currency": "VND",
+  "method": "bank_transfer",
+  "callback_url": "https://mysite.com/payment/callback"
+}
+​```
+
+Response codes:
+- 200: Payment created
+- 400: Invalid amount
+- 401: Invalid API key
+```
+
+### 4. Provide decision rules the AI can follow
+
+```markdown
+## Discount Logic
+
+1. VIP customers (total_spent > 10,000,000): 15% off
+2. Orders > 1,000,000: 10% off
+3. First-time buyers: 5% off + free shipping
+4. Discounts do NOT stack — apply the highest one
+5. Sale items are excluded from all discounts
+```
+
+### 5. Document naming conventions and terminology
+
+```markdown
+## Terminology
+
+- "SKU" = product variation ID (format: PROD-001-RED-M)
+- "Fulfillment" = packing + shipping process
+- "COD" = Cash on Delivery (thu tiền khi giao hàng)
+- "Pre-order" = customer pays now, ships in 2-4 weeks
+```
+
+---
+
+## Example Files
+
+### Business Rules (`business-rules.md`)
+
+```markdown
+---
+name: Business Rules
+description: E-commerce policies for order processing
+tags: business, orders, shipping
+---
+
+## Order Processing
+
+- Orders before 2PM: ship same day
+- Orders after 2PM: ship next business day
+- Weekend orders: process Monday morning
+
+## Payment Methods
+
+- COD: max 5,000,000 VND per order
+- Bank transfer: verify within 24h, auto-cancel if not paid in 48h
+- Credit card: instant confirmation via payment gateway
+
+## Inventory
+
+- Low stock alert: < 10 units
+- Out of stock: hide "Buy" button, show "Notify me"
+- Pre-order: allow purchase, mark estimated ship date
+```
+
+### Coding Standards (`coding-standards.md`)
+
+```markdown
+---
+name: Coding Standards
+description: Code conventions for HTTP functions
+tags: code, standards
+---
+
+## Function Naming
+
+- Query data: get_[Resource] (e.g. get_Products)
+- Create: post_[Action] (e.g. post_CreateOrder)
+- Update: put_[Action] (e.g. put_UpdateProfile)
+
+## Error Handling
+
+Always return structured errors:
+​```javascript
+return { error: true, code: "INVALID_EMAIL", message: "Email is not valid" };
+​```
+
+Never expose internal errors to users. Log them with console.error().
+
+## Database Queries
+
+- Always add .limit() to prevent fetching all records
+- Use .select() to pick only needed fields
+- Index frequently queried fields
+```
+
+### External API Docs (`payment-api.md`)
+
+```markdown
+---
+name: Payment Gateway API
+description: VNPay integration reference
+tags: api, payment, vnpay
+---
+
+## Create Payment
+
+POST https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+
+Required params:
+- vnp_Amount: amount * 100 (integer)
+- vnp_Command: pay
+- vnp_CreateDate: yyyyMMddHHmmss
+- vnp_OrderInfo: order description
+- vnp_TxnRef: unique transaction ID
+
+## Verify Callback
+
+Check vnp_SecureHash matches HMAC-SHA512 of all params (sorted by key).
+
+Status codes:
+- 00: Success
+- 01: Transaction incomplete
+- 02: Transaction error
+- 04: Reversed (refunded)
+```
+
+### Product Content Guide (`product-content.md`)
+
+```markdown
+---
+name: Product Content Guide
+description: How to write product descriptions and SEO content
+tags: content, seo, products
+---
+
+## Product Title Format
+
+[Brand] + [Product Name] + [Key Feature] + [Size/Color if applicable]
+Example: "Nike Air Max 90 - Breathable Mesh - White/Black"
+
+## Description Structure
+
+1. Opening hook (1 sentence)
+2. Key features (bullet points, 3-5 items)
+3. Specifications (table)
+4. Care instructions
+5. Warranty info
+
+## SEO Meta
+
+- Title: max 60 chars, include primary keyword
+- Description: max 155 chars, include CTA
+- Slug: lowercase, hyphens, no special chars
+```
+
+---
+
+## File Organization Tips
+
+```
+knowledge/
+  business-rules.md          # Order, shipping, payment policies
+  coding-standards.md        # Code conventions for HTTP functions
+  product-content.md         # How to write product descriptions
+  payment-api.md             # External payment API reference
+  email-templates.md         # Email content templates
+  faq.md                     # Common customer questions & answers
+```
+
+Keep each file focused on **one topic**. Prefer many small files over one large file — the AI agent will only read what it needs.
