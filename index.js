@@ -17,11 +17,12 @@ import { registerComboTools } from "./tools/combos.js";
 import { registerKnowledgeTools } from "./tools/knowledge.js";
 import { registerContextTools, getSavedConfig } from "./tools/context.js";
 
+// Priority: SQLite (updated by AI) > env vars (initial config)
 const saved = getSavedConfig();
-const BASE_URL = process.env.WEBCAKE_API_URL || saved.api_url || "";
-const TOKEN = process.env.WEBCAKE_TOKEN || saved.token || "";
-const SITE_ID = process.env.WEBCAKE_SITE_ID || saved.site_id || "";
-const SESSION_ID = process.env.WEBCAKE_SESSION_ID || saved.session_id || "";
+const BASE_URL = saved.api_url || process.env.WEBCAKE_API_URL || "";
+const TOKEN = saved.token || process.env.WEBCAKE_TOKEN || "";
+const SITE_ID = saved.site_id || process.env.WEBCAKE_SITE_ID || "";
+const SESSION_ID = saved.session_id || process.env.WEBCAKE_SESSION_ID || "";
 
 if (!BASE_URL) {
   console.error("Required: WEBCAKE_API_URL (env var or saved in database)");
