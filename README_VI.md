@@ -506,7 +506,8 @@ send_mail({
 - `toggle_debug_render` - Bật/tắt chế độ debug
 
 ### Quản lý trang (Pages)
-- `list_pages` - Liệt kê tất cả trang
+- `list_pages` - Liệt kê tất cả trang (chỉ metadata)
+- `get_page_source` - Lấy cấu trúc source trang (CSS classes, element types)
 - `create_page` - Tạo trang mới
 - `update_page` - Cập nhật thuộc tính trang
 - `get_site_custom_code` - Đọc CSS/JS custom code hiện tại của site

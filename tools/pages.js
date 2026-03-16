@@ -1,9 +1,106 @@
 import { z } from "zod";
 import { CUSTOM_CODE_GUIDE } from "../guides.js";
 
+/**
+ * Extract a compact flat list from page source JSON.
+ *
+ * Source structure (from builder):
+ *   { sections: [{ id, type, style, config, specials, children: [...] }] }
+ *
+ * Rendered HTML uses:
+ *   - Sections: <section id="SECTION-1" class="x-section {custom_class}">
+ *   - Elements: <div id="TEXT-1" class="x-element {custom_class}">
+ *   - custom_class comes from specials.custom_class (comma-separated)
+ *
+ * Returns a flat list of all elements (id, type, custom_class) — no nested tree.
+ */
+function extractSourceInfo(sourceJson) {
+  let source;
+  try {
+    source = typeof sourceJson === "string" ? JSON.parse(sourceJson) : sourceJson;
+  } catch {
+    return null;
+  }
+  if (!source || !source.sections) return null;
+
+  const elements = [];
+
+  function walk(node) {
+    if (!node) return;
+    const type = node.type || "unknown";
+    const id = node.id || "";
+
+    const entry = { id, type };
+
+    // Extract custom classes from specials.custom_class
+    const cc = node.specials && node.specials.custom_class;
+    if (cc) {
+      const classes = cc.split(",").map((s) => s.trim()).filter(Boolean);
+      if (classes.length) entry.custom_class = classes;
+    }
+
+    // Include specials hints for context
+    if (node.specials) {
+      if (node.specials.global) entry.global = node.specials.global;
+      if (node.specials.bind) entry.bind = node.specials.bind;
+    }
+
+    elements.push(entry);
+
+    // Recurse all children — no depth limit
+    const children = node.children || [];
+    for (const child of children) {
+      walk(child);
+    }
+  }
+
+  for (const section of source.sections) {
+    walk(section);
+  }
+
+  return elements;
+}
+
 export function registerPageTools(server, api, handle) {
-  server.tool("list_pages", "List all pages of the site", {}, () =>
-    handle(() => api.listPages())
+  server.tool("list_pages", "List all pages of the site (metadata only, without source)", {}, () =>
+    handle(async () => {
+      const res = await api.listPages();
+      const pages = (res && res.data) || res || [];
+      if (!Array.isArray(pages)) return res;
+      return pages.map((p) => ({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        type: p.type,
+        is_homepage: p.is_homepage,
+        is_build: p.is_build,
+        updated_at: p.updated_at,
+      }));
+    })
+  );
+
+  server.tool(
+    "get_page_source",
+    "Get page source structure for a specific page. Returns CSS classes and element types used on the page — useful before writing custom CSS/JS to target actual elements",
+    {
+      page_id: z.string().describe("Page ID"),
+    },
+    ({ page_id }) =>
+      handle(async () => {
+        const res = await api.listPages();
+        const pages = (res && res.data) || res || [];
+        const page = Array.isArray(pages) ? pages.find((p) => p.id === page_id) : null;
+        if (!page) return { error: "Page not found" };
+
+        const sourceData = page.source && page.source.source;
+        const elements = extractSourceInfo(sourceData);
+        return {
+          page: { id: page.id, name: page.name, slug: page.slug, type: page.type },
+          custom_code: (page.source && page.source.custom_code) || null,
+          elements,
+          hint: "Target elements via CSS: #ELEMENT-ID or .custom-class. All elements render with class 'x-element', sections with 'x-section'.",
+        };
+      })
   );
 
   server.tool(
