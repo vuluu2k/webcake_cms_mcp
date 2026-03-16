@@ -962,6 +962,76 @@ count_orders_by_status({})
 
 ---
 
+### Khuyến mãi & Giảm giá (Promotions)
+
+#### Danh sách khuyến mãi — `list_promotions`
+
+Trả về **metadata** — tên, loại, trạng thái, lịch. Dùng `include_guide=true` để xem hướng dẫn các loại khuyến mãi.
+
+```
+list_promotions({ page: 1, limit: 20, include_guide: true })
+→ {
+    data: [
+      { id: "promo_1", name: "Sale hè 30%", type: "normal",
+        is_activated: true, start_time: "2025-06-01", end_time: "2025-06-30",
+        priority_level: 1, used_count: 45 },
+      { id: "promo_2", name: "WELCOME10", type: "coupon",
+        is_activated: true, coupon_info: { code: "WELCOME10", max_uses: 100 } },
+    ],
+    total: 8,
+    guide: "## Promotion Types..."
+  }
+```
+
+**Các loại khuyến mãi (type):**
+- `normal` — Giảm giá sản phẩm thông thường
+- `same_price` — Đồng giá
+- `coupon` — Mã giảm giá / voucher
+- `promotion_order` — Giảm theo tổng đơn hàng
+- `promotion_category` — Giảm theo danh mục
+- `x_get_y_prod` — Mua X tặng Y sản phẩm
+
+#### Chi tiết khuyến mãi — `get_promotion`
+
+Trả về đầy đủ: quy tắc giảm giá, cài đặt coupon, sản phẩm áp dụng, quà tặng kèm.
+
+```
+get_promotion({ id: "promo_1" })
+→ { id: "promo_1", name: "Sale hè 30%", type: "normal", items: [...],
+    bonus_items: [...], customer_levels: [...], ... }
+```
+
+#### Sản phẩm trong KM — `get_promotion_items`
+
+Lấy danh sách sản phẩm/biến thể/danh mục áp dụng khuyến mãi.
+
+```
+get_promotion_items({ id: "promo_1", page: 1, limit: 20 })
+→ { items: [{ product: { name: "..." }, fixed_prices: 299000, level_info: [...] }], total_items: 15 }
+```
+
+#### KM đang hoạt động — `get_active_promotions`
+
+Lấy tất cả khuyến mãi đang active (đã kích hoạt và trong khung giờ).
+
+```
+get_active_promotions({})
+→ { data: [{ id: "promo_1", name: "Sale hè", type: "normal", is_activated: true }], total: 3 }
+```
+
+#### Tìm kiếm KM — `search_promotions`
+
+Lọc theo loại, trạng thái thời gian, từ khóa.
+
+```
+search_promotions({ type: "coupon", status: 2, is_activated: true })
+→ { promotions: [...], total: 5 }
+```
+
+**Lọc theo trạng thái:** 1=sắp diễn ra, 2=đang diễn ra, 3=đã kết thúc
+
+---
+
 ### Giao diện & Theme
 
 #### Thông tin site — `get_site_info`
@@ -1176,6 +1246,15 @@ AI agent sẽ dùng knowledge này làm ngữ cảnh khi hỗ trợ. Ví dụ: n
 | `list_orders` | Liệt kê đơn hàng (metadata: khách, trạng thái, tổng tiền, số SP) |
 | `get_order` | Xem chi tiết: sản phẩm, thanh toán, vận chuyển, giảm giá |
 | `count_orders_by_status` | Đếm đơn hàng theo trạng thái |
+
+### Khuyến mãi — Promotions (5 tools)
+| Tool | Mô tả |
+|------|-------|
+| `list_promotions` | Liệt kê khuyến mãi (metadata: tên, loại, trạng thái, lịch). `include_guide=true` để xem hướng dẫn |
+| `get_promotion` | Xem chi tiết: quy tắc giảm giá, coupon, sản phẩm, quà tặng |
+| `get_promotion_items` | Lấy sản phẩm/biến thể/danh mục trong khuyến mãi với chi tiết giảm giá |
+| `get_active_promotions` | Lấy tất cả khuyến mãi đang hoạt động |
+| `search_promotions` | Tìm/lọc theo loại, trạng thái (sắp diễn ra/đang diễn ra/đã kết thúc), từ khóa |
 
 ### Giao diện & Theme (2 tools)
 | Tool | Mô tả |

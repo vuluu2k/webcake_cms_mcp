@@ -955,6 +955,70 @@ count_orders_by_status({})
 
 ---
 
+### Promotions & Discounts
+
+#### List promotions — `list_promotions`
+
+Returns promotion **metadata only** — name, type, status, schedule. Use `include_guide=true` for promotion type reference.
+
+```
+list_promotions({ page: 1, limit: 20, include_guide: true })
+→ {
+    data: [
+      { id: "promo_1", name: "Summer Sale 30%", type: "normal",
+        is_activated: true, start_time: "2025-06-01", end_time: "2025-06-30",
+        priority_level: 1, used_count: 45 },
+      { id: "promo_2", name: "WELCOME10", type: "coupon",
+        is_activated: true, coupon_info: { code: "WELCOME10", max_uses: 100 } },
+      ...
+    ],
+    total: 8,
+    guide: "## Promotion Types..."
+  }
+```
+
+#### Get full promotion — `get_promotion`
+
+Returns complete promotion: discount rules, coupon settings, items, bonus products, customer levels.
+
+```
+get_promotion({ id: "promo_1" })
+→ { id: "promo_1", name: "Summer Sale 30%", type: "normal", items: [...],
+    bonus_items: [...], customer_levels: [...], ... }
+```
+
+#### Get promotion items — `get_promotion_items`
+
+Returns products/variations/categories attached to a promotion with detailed discount info.
+
+```
+get_promotion_items({ id: "promo_1", page: 1, limit: 20 })
+→ { items: [{ id: "item_1", product: { name: "..." }, fixed_prices: 299000,
+    level_info: [...] }], total_items: 15 }
+```
+
+#### Active promotions — `get_active_promotions`
+
+Get all currently active promotions (activated and within schedule).
+
+```
+get_active_promotions({})
+→ { data: [{ id: "promo_1", name: "Summer Sale", type: "normal", is_activated: true, ... }], total: 3 }
+```
+
+#### Search/filter promotions — `search_promotions`
+
+Filter by type, time status, keyword, active state.
+
+```
+search_promotions({ type: "coupon", status: 2, is_activated: true })
+→ { promotions: [...], total: 5 }
+```
+
+**Status filter:** 1=coming_soon, 2=in_progress, 3=finished
+
+---
+
 ### Site Style & Theme
 
 #### Site info — `get_site_info`
@@ -1169,6 +1233,15 @@ AI agents will use this knowledge as context when helping with tasks. For exampl
 | `list_orders` | List orders (metadata: customer, status, total, items count) |
 | `get_order` | Get full order: items, payment, shipping, discounts |
 | `count_orders_by_status` | Order count grouped by status |
+
+### Promotions & Discounts (5 tools)
+| Tool | Description |
+|------|-------------|
+| `list_promotions` | List all promotions (metadata: name, type, status, schedule). `include_guide=true` for type reference |
+| `get_promotion` | Get full promotion details: discount rules, coupon settings, items, bonus products |
+| `get_promotion_items` | Get products/variations/categories attached to a promotion with discount details |
+| `get_active_promotions` | Get all currently active promotions |
+| `search_promotions` | Search/filter by type, status (coming_soon/in_progress/finished), keyword |
 
 ### Site Style & Theme (2 tools)
 | Tool | Description |

@@ -249,6 +249,28 @@ export class WebcakeCmsApi {
     return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/applications/subcriptions/get_app`, { query: { type } });
   }
 
+  // ── Promotions ──
+
+  listPromotions(query) {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/promotion_advance/all`, { query });
+  }
+
+  getPromotion(id) {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/promotion_advance/get_promotion`, { query: { id } });
+  }
+
+  getPromotionItems(id, query) {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/promotion_advance/get_items`, { query: { id, ...query } });
+  }
+
+  getActivePromotions() {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/promotion_advance/get_promotions_actived`);
+  }
+
+  searchPromotions(query) {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/promotion_advance/get_promotions_advance`, { query });
+  }
+
   // ── Customers ──
 
   findCustomerById(id) {
