@@ -557,58 +557,89 @@ Tất cả tools được thiết kế với mục tiêu **tối ưu token** —
 
 ### CMS Files & HTTP Functions
 
-#### Đọc code — `get_http_function`
+#### Bước 1: Xem tổng quan — `get_http_function` (mặc định: chế độ overview)
 
-Lần **gọi đầu tiên**, đặt `include_guide=true` để nhận hướng dẫn lập trình (quy ước đặt tên function, cách dùng SDK, biến global có sẵn). Các lần sau bỏ qua để tiết kiệm ~600 tokens.
+Mặc định trả về **chỉ danh sách tên function và vị trí dòng** — không trả code. Rất tiết kiệm token cho file lớn.
 
 ```
-# Lần đầu — lấy code + guide
+# Lần đầu — overview + guide + schemas
 get_http_function({ include_guide: true })
-→ { http_function: { id, content, ... }, collections: [...], guide: "..." }
-
-# Các lần sau — chỉ lấy code
-get_http_function({})
-→ { http_function: { id, content, ... }, collections: [...] }
+→ {
+    file_id: "file_123",
+    total_lines: 250,
+    imports: "import { DBConnection } from 'webcake-data';",
+    functions: [
+      { name: "get_Products", method: "get", function_name: "Products", start_line: 5, end_line: 35, lines: 31 },
+      { name: "post_CreateOrder", method: "post", function_name: "CreateOrder", start_line: 37, end_line: 120, lines: 84 },
+    ],
+    collections: [...],
+    guide: "..."
+  }
 ```
 
-Response cũng bao gồm **schemas của các collections** (name, table_name, fields với types) để AI agent biết cấu trúc dữ liệu khi viết database queries.
+Muốn lấy toàn bộ file: `get_http_function({ overview: false })`
 
-#### Viết code — `update_http_function`
+#### Bước 2: Đọc function cụ thể — `get_http_function_snippet`
 
-Gửi **toàn bộ nội dung file** (không phải diff). Sau khi cập nhật, code tự động deploy lên bundle service.
+Đọc chỉ function cần thiết — tiết kiệm 80-95% token so với đọc toàn bộ file.
 
 ```
-update_http_function({ content: "import { DBConnection } from 'webcake-data';\n..." })
+get_http_function_snippet({ function_names: ["get_Products", "post_CreateOrder"] })
+→ {
+    functions: [{
+      name: "get_Products", start_line: 5, end_line: 35,
+      code: "export const get_Products = (request) => {\n  ..."
+    }, ...]
+  }
 ```
+
+#### Bước 3: Sửa theo tên function — `edit_http_function`
+
+Server tự tìm vị trí function theo tên — không cần string matching, không lo whitespace.
+
+```
+# Thay thế toàn bộ function theo tên (server tự tìm đầu/cuối)
+edit_http_function({
+  action: "replace_function",
+  function_name: "get_Products",
+  code: "export const get_Products = (request) => {\n  return { hello: 'world' };\n}"
+})
+
+# Thêm function mới vào cuối file
+edit_http_function({
+  action: "add",
+  code: "export const get_Stats = (request) => {\n  return { count: 42 };\n}"
+})
+
+# Xóa function theo tên
+edit_http_function({ action: "remove", function_name: "get_OldFunction" })
+
+# Cập nhật import block
+edit_http_function({ action: "update_imports",
+  code: "import { DBConnection } from 'webcake-data';" })
+→ { success: true, total_lines: 245, functions: [...] }
+```
+
+#### Viết lại toàn bộ (khi cần) — `update_http_function`
+
+Gửi toàn bộ file. Dùng `edit_http_function` cho thay đổi nhỏ.
 
 #### Testing — `debug_function` vs `run_function`
 
 | Tool | Khi nào dùng |
 |------|-------------|
-| `debug_function` | Test code **trước khi deploy** — gửi code trực tiếp, nhận kết quả + console logs |
+| `debug_function` | Test code **trước khi deploy** — gửi code trực tiếp, nhận kết quả + logs |
 | `run_function` | Gọi function **đã deploy** — giống gọi REST API |
 
 ```
-# Debug: test code không cần lưu
-debug_function({
-  content: "export const get_Test = (request) => { return { hello: 'world' }; }",
-  function_name: "Test",
-  params: {}
-})
-
-# Run: gọi function đã deploy (lưu ý: function_name không bao gồm prefix method)
+debug_function({ content: "export const get_Test = ...", function_name: "Test", params: {} })
 run_function({ function_name: "Products", method: "GET", params: { page: 1 } })
 ```
 
 #### Quản lý phiên bản — `save_file_version` / `get_file_versions`
 
-Lưu snapshot trước khi thay đổi lớn để có thể rollback:
-
 ```
-# Lưu phiên bản hiện tại trước khi viết lại
 save_file_version({ cms_file_id: "file_123", content: "...", is_public: false })
-
-# Xem lịch sử
 get_file_versions({ cms_file_id: "file_123" })
 ```
 
@@ -755,25 +786,36 @@ get_page_element({ page_id: "page_1", element_id: "SECTION-1" })
     children: [{ id: "CONTAINER-1", type: "container" }, { id: "TEXT-1", type: "text" }] }
 ```
 
-#### Custom code — `get_site_custom_code` / `update_site_custom_code`
+#### Custom code — `get_site_custom_code` / `append_site_custom_code`
 
-**Luôn đọc trước khi viết** để tránh ghi đè code hiện có.
-
-Lần **gọi đầu tiên**, đặt `include_guide=true` để nhận hướng dẫn lập trình (~400 tokens). Các lần sau bỏ qua.
+**Đọc chỉ field cần thiết** để tiết kiệm token khi code lớn:
 
 ```
-# Lần đầu — đọc code hiện tại + guide
-get_site_custom_code({ include_guide: true })
-→ {
-    code_before_head: "<script src='...'>",
-    code_before_body: "",
-    code_custom_css: ".hero { ... }",
-    code_custom_javascript: "document.addEventListener(...)",
-    guide: "..."
-  }
+# Chỉ đọc CSS (bỏ qua JS nếu lớn)
+get_site_custom_code({ fields: ["code_custom_css"] })
+→ { code_custom_css: ".hero { color: #333; ... }" }
 
-# Cập nhật — chỉ gửi fields muốn thay đổi
-update_site_custom_code({ code_custom_css: ".hero { ... }\n.new-style { ... }" })
+# Đọc tất cả — _sizes cho biết kích thước từng field
+get_site_custom_code({ include_guide: true })
+→ { ..., _sizes: { code_custom_css: 3500, code_custom_javascript: 8200, ... } }
+```
+
+**Thêm code mới** — không cần đọc nội dung hiện có:
+
+```
+# Thêm CSS mới vào cuối
+append_site_custom_code({ field: "code_custom_css",
+  code: ".new-section { padding: 20px; }" })
+
+# Thêm script vào đầu head
+append_site_custom_code({ field: "code_before_head", position: "prepend",
+  code: "<script src='https://cdn.example.com/lib.js'></script>" })
+```
+
+**Sửa code hiện có** — đọc field → sửa → gửi lại field đó:
+```
+get_site_custom_code({ fields: ["code_custom_css"] })   # đọc chỉ CSS
+update_site_custom_code({ code_custom_css: "... CSS đã sửa ..." })
 ```
 
 | Field | Vị trí chèn | Dùng cho |
@@ -1227,27 +1269,33 @@ AI agent sẽ dùng knowledge này làm ngữ cảnh khi hỗ trợ. Ví dụ: n
 | Lazy guides (`include_guide`) | ~600-1000 mỗi lần gọi | Chỉ tải guide lần đầu |
 | List = chỉ metadata | 50-90% mỗi lần list | HTML content, source JSON, full schemas bị loại khỏi response list |
 | Overview + Search (pages) | ~85-90% | Overview cho cấu trúc, search cho chỉ elements khớp |
+| HTTP function overview + snippet | ~80-95% mỗi lần đọc | Overview chỉ trả danh sách function, snippet đọc đúng function cần |
+| `edit_http_function` | ~70-90% mỗi lần sửa | Sửa/thêm/xóa theo tên function, không gửi toàn bộ file |
+| Custom code field filter | ~50-80% mỗi lần đọc | Chỉ đọc CSS hoặc JS thay vì cả 4 fields |
+| `append_site_custom_code` | ~100% khi thêm mới | Thêm code mà không cần đọc nội dung hiện có |
 | Compact JSON | ~30% mỗi response | Không pretty-print trong response |
 
 ---
 
 ## Danh sách công cụ
 
-### CMS Files (10 tools)
+### CMS Files (12 tools)
 | Tool | Mô tả |
 |------|-------|
 | `list_cms_files` | Liệt kê tất cả CMS files |
 | `create_cms_file` | Tạo HTTP function / cron job / file mặc định |
 | `update_cms_file` | Cập nhật nội dung file |
-| `get_http_function` | Lấy HTTP function chính + collection schemas. `include_guide=true` để nhận guide |
-| `update_http_function` | Tạo/cập nhật HTTP function (tự động deploy) |
+| `get_http_function` | **Mặc định**: full code + schemas. **overview=true**: chỉ danh sách function (để duyệt). `include_guide=true` cho guide |
+| `get_http_function_snippet` | Đọc function cụ thể theo tên — tiết kiệm token hơn nhiều so với đọc toàn bộ file |
+| `edit_http_function` | Sửa theo tên function: replace_function/add/remove/update_imports — không cần string matching |
+| `update_http_function` | Ghi toàn bộ file — dùng khi viết tính năng mới, refactor lớn. Sửa nhỏ dùng `edit_http_function` |
 | `run_function` | Chạy function đã triển khai |
 | `debug_function` | Chạy code ở chế độ debug (không cần deploy) |
 | `save_file_version` | Lưu phiên bản để rollback |
 | `get_file_versions` | Xem lịch sử phiên bản |
 | `toggle_debug_render` | Bật/tắt chế độ debug render |
 
-### Quản lý trang — Pages (15 tools)
+### Quản lý trang — Pages (16 tools)
 | Tool | Mô tả |
 |------|-------|
 | `list_pages` | Liệt kê trang (chỉ metadata, không có source) |
@@ -1258,8 +1306,9 @@ AI agent sẽ dùng knowledge này làm ngữ cảnh khi hỗ trợ. Ví dụ: n
 | `update_page_elements` | Cập nhật hàng loạt nhiều elements trong một lần gọi |
 | `create_page` | Tạo trang mới |
 | `update_page` | Cập nhật thuộc tính trang |
-| `get_site_custom_code` | Đọc CSS/JS hiện tại. `include_guide=true` để nhận guide |
-| `update_site_custom_code` | Viết CSS/JS custom code cho toàn bộ site |
+| `get_site_custom_code` | Đọc CSS/JS. Dùng `fields` để chỉ đọc field cần. `include_guide=true` để nhận guide |
+| `update_site_custom_code` | Cập nhật toàn bộ CSS/JS (chỉ field được gửi sẽ thay đổi) |
+| `append_site_custom_code` | Thêm CSS/JS mới (append/prepend) mà không cần đọc trước |
 | `delete_page` | Xóa trang |
 | `get_page_versions` | Lịch sử phiên bản trang |
 | `list_page_contents` | Nội dung đa ngôn ngữ |

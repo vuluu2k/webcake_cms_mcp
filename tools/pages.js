@@ -266,20 +266,33 @@ Examples:
 
   server.tool(
     "get_site_custom_code",
-    "Get current custom code of the site (CSS/JS). Always call this before writing/updating custom code to avoid overwriting existing code. Add include_guide=true on first call to get the coding guide",
+    `Get custom code of the site (CSS/JS). Two modes:
+- Default: returns ALL 4 code fields (full content)
+- With field filter: returns only the specified field(s) — saves tokens when you only need CSS or JS
+Add include_guide=true on first call to get the coding guide`,
     {
+      fields: z.array(z.enum(["code_before_head", "code_before_body", "code_custom_css", "code_custom_javascript"]))
+        .optional()
+        .describe("Only return specific fields (e.g. ['code_custom_css']). Omit to get all 4 fields"),
       include_guide: z.boolean().default(false).describe("Include the custom code coding guide (only needed on first call)"),
     },
-    ({ include_guide }) =>
+    ({ fields, include_guide }) =>
       handle(async () => {
         const siteRes = await api.getSite();
         const s = (siteRes && siteRes.data && siteRes.data.settings) || {};
-        const res = {
-          code_before_head: s.code_before_head || "",
-          code_before_body: s.code_before_body || "",
-          code_custom_css: s.code_custom_css || "",
-          code_custom_javascript: s.code_custom_javascript || "",
-        };
+        const allFields = ["code_before_head", "code_before_body", "code_custom_css", "code_custom_javascript"];
+        const selected = fields && fields.length ? fields : allFields;
+        const res = {};
+        for (const f of selected) {
+          res[f] = s[f] || "";
+        }
+        if (!fields || !fields.length) {
+          // Add size hints so AI knows which fields are large
+          res._sizes = {};
+          for (const f of allFields) {
+            res._sizes[f] = (s[f] || "").length;
+          }
+        }
         if (include_guide) res.guide = CUSTOM_CODE_GUIDE;
         return res;
       })
@@ -287,7 +300,7 @@ Examples:
 
   server.tool(
     "update_site_custom_code",
-    `Update custom code (CSS/JS) for the entire site. Stored in site settings, applies to all pages.
+    `Update custom code (CSS/JS) for the entire site. Only sends fields you specify — others remain unchanged.
 - code_before_head: HTML/script inserted before </head>
 - code_before_body: HTML/script inserted before </body>
 - code_custom_css: Custom CSS (auto-wrapped in <style>)
@@ -305,6 +318,34 @@ Examples:
       }
       return handle(() => api.updateSiteSettings(settings));
     }
+  );
+
+  server.tool(
+    "append_site_custom_code",
+    `Append or prepend code to a custom code field WITHOUT reading the existing content first.
+Use this when you need to ADD new CSS rules, JS code, or script tags — no need to read first.
+For full rewrites, use update_site_custom_code instead.`,
+    {
+      field: z.enum(["code_before_head", "code_before_body", "code_custom_css", "code_custom_javascript"])
+        .describe("Which code field to modify"),
+      code: z.string().describe("Code to add"),
+      position: z.enum(["append", "prepend"]).default("append").describe("Add to end (append) or beginning (prepend)"),
+    },
+    ({ field, code, position }) =>
+      handle(async () => {
+        const siteRes = await api.getSite();
+        const s = (siteRes && siteRes.data && siteRes.data.settings) || {};
+        let content = s[field] || "";
+
+        if (position === "prepend") {
+          content = code.trimEnd() + "\n\n" + content.trimStart();
+        } else {
+          content = content.trimEnd() + "\n\n" + code.trimEnd() + "\n";
+        }
+
+        await api.updateSiteSettings({ [field]: content });
+        return { success: true, field, position, new_length: content.length };
+      })
   );
 
   server.tool(

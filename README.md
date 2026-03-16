@@ -522,25 +522,79 @@ All tools are designed with **token optimization** in mind — list tools return
 
 ### CMS Files & HTTP Functions
 
-#### Reading code — `get_http_function`
+#### Step 1: Get overview — `get_http_function` (default: overview mode)
 
-On the **first call**, set `include_guide=true` to receive the coding guide (function naming convention, SDK usage, available globals). On subsequent calls, omit it to save ~600 tokens.
+By default, returns **only function names and line ranges** — no code body. Very token-efficient for large files.
 
 ```
-# First time — get code + guide
+# First time — overview + guide + schemas
 get_http_function({ include_guide: true })
-→ { http_function: { id, content, ... }, collections: [...], guide: "..." }
+→ {
+    file_id: "file_123",
+    total_lines: 250,
+    imports: "import { DBConnection } from 'webcake-data';",
+    functions: [
+      { name: "get_Products", method: "get", function_name: "Products", start_line: 5, end_line: 35, lines: 31 },
+      { name: "post_CreateOrder", method: "post", function_name: "CreateOrder", start_line: 37, end_line: 120, lines: 84 },
+      ...
+    ],
+    collections: [...],
+    guide: "..."
+  }
 
-# Subsequent calls — code only
+# Subsequent calls — overview only
 get_http_function({})
-→ { http_function: { id, content, ... }, collections: [...] }
 ```
 
-The response also includes **collection schemas** (name, table_name, fields with types) so the AI agent knows the data model when writing database queries.
+To get the full file (when really needed): `get_http_function({ overview: false })`
 
-#### Writing code — `update_http_function`
+#### Step 2: Read specific functions — `get_http_function_snippet`
 
-Send the **full file content** (not a diff). After update, the code is auto-deployed to the bundle service.
+Read only the function(s) you need — saves 80-95% tokens vs reading the full file.
+
+```
+get_http_function_snippet({ function_names: ["get_Products"] })
+→ {
+    functions: [{
+      name: "get_Products", method: "get", function_name: "Products",
+      start_line: 5, end_line: 35,
+      code: "export const get_Products = (request) => {\n  ..."
+    }]
+  }
+```
+
+#### Step 3: Edit by function name — `edit_http_function`
+
+Edit functions by **name** — server finds function boundaries automatically. No fragile string matching.
+
+```
+# Replace entire function by name (server finds where it starts/ends)
+edit_http_function({
+  action: "replace_function",
+  function_name: "get_Products",
+  code: "export const get_Products = (request) => {\n  const db = new DBConnection();\n  return db.model('products').find().limit(20).exec();\n}"
+})
+
+# Add a new function at end of file
+edit_http_function({
+  action: "add",
+  code: "export const get_Stats = (request) => {\n  return { count: 42 };\n}"
+})
+
+# Remove a function by name
+edit_http_function({ action: "remove", function_name: "get_OldFunction" })
+
+# Update import block
+edit_http_function({
+  action: "update_imports",
+  code: "import { DBConnection } from 'webcake-data';\nimport { findArticle } from '@webcake/article';"
+})
+→ { success: true, total_lines: 245, functions: [...] }
+```
+
+#### Full rewrite (when needed) — `update_http_function`
+
+Send full file content. Use `edit_http_function` for targeted changes instead.
 
 ```
 update_http_function({ content: "import { DBConnection } from 'webcake-data';\n..." })
@@ -550,7 +604,7 @@ update_http_function({ content: "import { DBConnection } from 'webcake-data';\n.
 
 | Tool | When to use |
 |------|-------------|
-| `debug_function` | Test code **before deploying** — send code directly, get execution result + console logs |
+| `debug_function` | Test code **before deploying** — send code directly, get result + logs |
 | `run_function` | Call an **already deployed** function — like calling a REST API |
 
 ```
@@ -570,10 +624,7 @@ run_function({ function_name: "Products", method: "GET", params: { page: 1 } })
 Save a snapshot before major changes for rollback capability:
 
 ```
-# Save current version before rewrite
 save_file_version({ cms_file_id: "file_123", content: "...", is_public: false })
-
-# View history
 get_file_versions({ cms_file_id: "file_123" })
 ```
 
@@ -656,24 +707,34 @@ Each matched element returns:
 
 **CSS targeting**: Sections render as `<section id="SECTION-1" class="x-section {custom_class}">`, elements as `<div id="TEXT-3" class="x-element {custom_class}">`. Target via `#TEXT-3` (by ID) or `.cta-text` (by custom class).
 
-#### Custom code — `get_site_custom_code` / `update_site_custom_code`
+#### Custom code — `get_site_custom_code` / `append_site_custom_code`
 
-**Always read before writing** to avoid overwriting existing code.
-
-On the **first call**, set `include_guide=true` to get the coding guide (~400 tokens). Omit on subsequent calls.
+**Read specific fields only** to save tokens when code is large:
 
 ```
-# First time — read current code + guide
-get_site_custom_code({ include_guide: true })
-→ {
-    code_before_head: "<script src='...'>",
-    code_before_body: "",
-    code_custom_css: ".hero { ... }",
-    code_custom_javascript: "document.addEventListener(...)",
-    guide: "..."
-  }
+# Read only CSS (skip large JS)
+get_site_custom_code({ fields: ["code_custom_css"] })
+→ { code_custom_css: ".hero { color: #333; ... }" }
 
-# Update — only send the fields you want to change
+# Read all — _sizes shows character count per field
+get_site_custom_code({ include_guide: true })
+→ { ..., _sizes: { code_custom_css: 3500, code_custom_javascript: 8200, ... }, guide: "..." }
+```
+
+**Add new code** — append/prepend without reading existing content:
+
+```
+# Append new CSS rules
+append_site_custom_code({ field: "code_custom_css", code: ".new-section { padding: 20px; }" })
+
+# Prepend a script tag to head
+append_site_custom_code({ field: "code_before_head", position: "prepend",
+  code: "<script src='https://cdn.example.com/lib.js'></script>" })
+```
+
+**Full update** — read first, then rewrite entire field:
+```
+get_site_custom_code({ fields: ["code_custom_css"] })   # read only CSS
 update_site_custom_code({ code_custom_css: ".hero { ... }\n.new-style { ... }" })
 ```
 
@@ -1215,27 +1276,33 @@ AI agents will use this knowledge as context when helping with tasks. For exampl
 | Lazy guides (`include_guide`) | ~600-1000 per call | Only load guide on first call |
 | List = metadata only | 50-90% per list call | HTML content, source JSON, full schemas stripped from list responses |
 | Overview + Search (pages) | ~85-90% | Overview gives structure, search gives only matched elements |
+| HTTP function overview + snippet | ~80-95% per read | Overview shows function list only, snippet reads just the needed function |
+| `edit_http_function` | ~70-90% per edit | Replace/add/remove by function name, not full file |
+| Custom code field filter | ~50-80% per read | Read only CSS or JS instead of all 4 fields |
+| `append_site_custom_code` | ~100% on add | Append/prepend without reading existing content |
 | Compact JSON | ~30% per response | No pretty-printing in responses |
 
 ---
 
 ## Available Tools
 
-### CMS Files (10 tools)
+### CMS Files (12 tools)
 | Tool | Description |
 |------|-------------|
 | `list_cms_files` | List all CMS files |
 | `create_cms_file` | Create HTTP function / cron job / default file |
 | `update_cms_file` | Update file content |
-| `get_http_function` | Get main HTTP function + collection schemas. `include_guide=true` for coding guide |
-| `update_http_function` | Create/update HTTP function (auto-deploys) |
+| `get_http_function` | **Default**: full code + schemas. **overview=true**: function list only (for browsing). `include_guide=true` for coding guide |
+| `get_http_function_snippet` | Read specific function(s) by name — much more token-efficient than full file |
+| `edit_http_function` | Edit by function name: replace_function/add/remove/update_imports — no string matching needed |
+| `update_http_function` | Full file write — best for new features, major refactors. `edit_http_function` for small fixes |
 | `run_function` | Execute a deployed function |
 | `debug_function` | Run code in debug mode (without deploying) |
 | `save_file_version` | Save version snapshot for rollback |
 | `get_file_versions` | Get version history |
 | `toggle_debug_render` | Toggle debug render mode |
 
-### Pages (15 tools)
+### Pages (16 tools)
 | Tool | Description |
 |------|-------------|
 | `list_pages` | List all pages (metadata only, no source) |
@@ -1246,8 +1313,9 @@ AI agents will use this knowledge as context when helping with tasks. For exampl
 | `update_page_elements` | Batch update multiple elements in one call |
 | `create_page` | Create a new page |
 | `update_page` | Update page properties |
-| `get_site_custom_code` | Read current CSS/JS. `include_guide=true` for coding guide |
-| `update_site_custom_code` | Write CSS/JS custom code for the entire site |
+| `get_site_custom_code` | Read CSS/JS. Use `fields` to read only specific fields. `include_guide=true` for guide |
+| `update_site_custom_code` | Write full CSS/JS custom code (only specified fields are updated) |
+| `append_site_custom_code` | Append/prepend CSS/JS code without reading first — for adding new rules |
 | `delete_page` | Delete a page |
 | `get_page_versions` | Page version history |
 | `list_page_contents` | Multi-language contents |
