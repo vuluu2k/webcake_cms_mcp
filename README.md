@@ -483,48 +483,321 @@ send_mail({
 
 ---
 
-## Available Tools
+## Detailed Tool Usage Guide
 
-### CMS Files
-- `list_cms_files` - List all CMS files
-- `create_cms_file` - Create HTTP function / cron job / default file
-- `update_cms_file` - Update file content
-- `get_http_function` - Get main HTTP function file
-- `update_http_function` - Create/update HTTP function
-- `run_function` - Execute a deployed function
-- `debug_function` - Run code in debug mode
-- `save_file_version` - Save version snapshot
-- `get_file_versions` - Get version history
-- `toggle_debug_render` - Toggle debug mode
+All tools are designed with **token optimization** in mind — list tools return lightweight metadata, detail tools return full data, and guides are loaded on-demand. This section explains the optimal workflow for each tool group.
 
-### Pages
-- `list_pages` - List all pages (metadata only)
-- `get_page_source` - Get page source overview (element types, custom classes)
-- `search_page_elements` - Search elements by type, class, text, bind
-- `create_page` - Create a page
-- `update_page` - Update page properties
-- `get_site_custom_code` - Read current CSS/JS custom code for the site
-- `update_site_custom_code` - Write CSS/JS custom code for the entire site
-- `delete_page` - Delete a page
-- `get_page_versions` - Page version history
-- `list_page_contents` - Multi-language contents
-- `update_page_content` - Update content for a language
-- `list_global_sections` - List reusable sections
+### CMS Files & HTTP Functions
+
+#### Reading code — `get_http_function`
+
+On the **first call**, set `include_guide=true` to receive the coding guide (function naming convention, SDK usage, available globals). On subsequent calls, omit it to save ~600 tokens.
+
+```
+# First time — get code + guide
+get_http_function({ include_guide: true })
+→ { http_function: { id, content, ... }, collections: [...], guide: "..." }
+
+# Subsequent calls — code only
+get_http_function({})
+→ { http_function: { id, content, ... }, collections: [...] }
+```
+
+The response also includes **collection schemas** (name, table_name, fields with types) so the AI agent knows the data model when writing database queries.
+
+#### Writing code — `update_http_function`
+
+Send the **full file content** (not a diff). After update, the code is auto-deployed to the bundle service.
+
+```
+update_http_function({ content: "import { DBConnection } from 'webcake-data';\n..." })
+```
+
+#### Testing — `debug_function` vs `run_function`
+
+| Tool | When to use |
+|------|-------------|
+| `debug_function` | Test code **before deploying** — send code directly, get execution result + console logs |
+| `run_function` | Call an **already deployed** function — like calling a REST API |
+
+```
+# Debug: test code without saving
+debug_function({
+  content: "export const get_Test = (request) => { return { hello: 'world' }; }",
+  function_name: "Test",
+  params: {}
+})
+
+# Run: call deployed function (note: function_name excludes method prefix)
+run_function({ function_name: "Products", method: "GET", params: { page: 1 } })
+```
+
+#### Version management — `save_file_version` / `get_file_versions`
+
+Save a snapshot before major changes for rollback capability:
+
+```
+# Save current version before rewrite
+save_file_version({ cms_file_id: "file_123", content: "...", is_public: false })
+
+# View history
+get_file_versions({ cms_file_id: "file_123" })
+```
+
+---
+
+### Pages & Custom Code
+
+#### Step 1: List pages — `list_pages`
+
+Returns **metadata only** (no source data) — id, name, slug, type, is_homepage, updated_at.
+
+```
+list_pages({})
+→ [{ id: "page_1", name: "Home", slug: "/", type: "page", is_homepage: true, ... }, ...]
+```
+
+#### Step 2: Get page overview — `get_page_source`
+
+Returns a **lightweight overview** of the page structure — section count, element type counts, and all custom CSS classes used. Does NOT return full source data.
+
+```
+get_page_source({ page_id: "page_1" })
+→ {
+    page: { id, name, slug, type },
+    custom_code: { ... },
+    overview: {
+      sections_count: 5,
+      total_elements: 47,
+      element_types: { section: 5, container: 12, text: 15, image: 8, button: 7 },
+      custom_classes: ["hero-title", "product-card", "cta-button", ...]
+    }
+  }
+```
+
+#### Step 3: Search specific elements — `search_page_elements`
+
+Query elements by various filters. Returns **full detail** for each matched element (style, config, specials, events, bindings, responsive breakpoints).
+
+```
+# Find all buttons
+search_page_elements({ page_id: "page_1", type: "button" })
+
+# Find elements with a specific CSS class
+search_page_elements({ page_id: "page_1", custom_class: "hero" })
+
+# Find text containing "subscribe"
+search_page_elements({ page_id: "page_1", text: "subscribe" })
+
+# Find all data-bound elements (product, category, blog bindings)
+search_page_elements({ page_id: "page_1", has_bind: true })
+
+# Find all elements with click/submit events
+search_page_elements({ page_id: "page_1", has_events: true })
+
+# Find all elements that have custom CSS classes
+search_page_elements({ page_id: "page_1", has_custom_class: true })
+
+# Combine filters
+search_page_elements({ page_id: "page_1", type: "text", custom_class: "hero", limit: 10 })
+```
+
+Each matched element returns:
+
+```json
+{
+  "id": "TEXT-3",
+  "type": "text",
+  "style": { "color": "#333", "font-size": "18px", ... },
+  "config": { ... },
+  "specials": { "text": "Subscribe now", "custom_class": "cta-text", "custom_css": "..." },
+  "events": [{ "eventName": "click", "action": "open_page", ... }],
+  "bindings": [{ "name": "product", "target": "title", ... }],
+  "responsive": {
+    "bp_320_768": { "style": { "font-size": "14px" } },
+    "bp_768_1024": { "style": { "font-size": "16px" } }
+  },
+  "children_count": 3
+}
+```
+
+**CSS targeting**: Sections render as `<section id="SECTION-1" class="x-section {custom_class}">`, elements as `<div id="TEXT-3" class="x-element {custom_class}">`. Target via `#TEXT-3` (by ID) or `.cta-text` (by custom class).
+
+#### Custom code — `get_site_custom_code` / `update_site_custom_code`
+
+**Always read before writing** to avoid overwriting existing code.
+
+On the **first call**, set `include_guide=true` to get the coding guide (~400 tokens). Omit on subsequent calls.
+
+```
+# First time — read current code + guide
+get_site_custom_code({ include_guide: true })
+→ {
+    code_before_head: "<script src='...'>",
+    code_before_body: "",
+    code_custom_css: ".hero { ... }",
+    code_custom_javascript: "document.addEventListener(...)",
+    guide: "..."
+  }
+
+# Update — only send the fields you want to change
+update_site_custom_code({ code_custom_css: ".hero { ... }\n.new-style { ... }" })
+```
+
+| Field | Where it's injected | Use for |
+|-------|-------------------|---------|
+| `code_before_head` | Before `</head>` | External scripts, meta tags |
+| `code_before_body` | Before `</body>` | Tracking scripts, chat widgets |
+| `code_custom_css` | Auto-wrapped in `<style>` | Custom CSS styles |
+| `code_custom_javascript` | As inline `<script>` | Custom JavaScript |
+
+#### Recommended workflow for CSS/JS tasks
+
+```
+1. list_pages()                              → find the target page
+2. get_page_source({ page_id })              → understand page structure
+3. search_page_elements({ page_id, ... })    → find specific elements to style
+4. get_site_custom_code({ include_guide: true })  → read existing code
+5. update_site_custom_code({ ... })          → write new code (merged with existing)
+```
+
+---
 
 ### Collections (Database)
-- `list_collections` - List all database collections with schemas
-- `get_collection` - Get collection details and field definitions
-- `query_collection_records` - Query records from a collection
+
+#### List collections — `list_collections`
+
+Returns **summary only** — name, table_name, field count. Does NOT include full schema definitions.
+
+```
+list_collections({})
+→ {
+    data: [
+      { id: "col_1", name: "Subscribers", table_name: "subscribers", fields_count: 5 },
+      { id: "col_2", name: "Orders", table_name: "custom_orders", fields_count: 12 },
+      ...
+    ],
+    total: 8
+  }
+```
+
+#### Get full schema — `get_collection`
+
+Use this to get complete field definitions (name, type, constraints, references) when you need to write queries.
+
+```
+get_collection({ id: "col_1" })
+→ { name: "Subscribers", table_name: "subscribers", schema: [
+    { name: "email", type: "string", is_required: true },
+    { name: "subscribed_at", type: "datetime", is_required: false },
+    ...
+  ]}
+```
+
+#### Query records — `query_collection_records`
+
+Inspect existing data using the **table_name** (not collection ID).
+
+```
+query_collection_records({ table_name: "subscribers", page: 1, limit: 10 })
+```
+
+---
 
 ### Blog Articles
-- `list_articles` - List articles with filtering
-- `get_article` - Get article by ID
-- `create_article` - Create article
-- `update_article` - Update article
-- `delete_article` - Delete article
 
-### Customers
-- `find_customer` - Find by ID, phone, or email
+#### List articles — `list_articles`
 
-### Automation
-- `send_mail` - Send email via CMS automation
+Returns **metadata only** — no HTML content. Saves significant tokens for sites with many articles.
+
+```
+list_articles({ page: 1, limit: 20 })
+→ {
+    data: [
+      { id: "art_1", name: "Getting Started", slug: "getting-started", summary: "...",
+        tags: ["tutorial"], category_id: "cat_1", created_at: "...", updated_at: "..." },
+      ...
+    ],
+    total: 45
+  }
+```
+
+#### Get full article — `get_article`
+
+Use this when you need the full HTML content of a specific article.
+
+```
+get_article({ id: "art_1" })
+→ { id: "art_1", name: "...", content: "<h2>...</h2><p>Full HTML content...</p>", ... }
+```
+
+---
+
+### Token Optimization Summary
+
+| Pattern | Tokens saved | How |
+|---------|-------------|-----|
+| Lazy guides (`include_guide`) | ~600-1000 per call | Only load guide on first call |
+| List = metadata only | 50-90% per list call | HTML content, source JSON, full schemas stripped from list responses |
+| Overview + Search (pages) | ~85-90% | Overview gives structure, search gives only matched elements |
+| Compact JSON | ~30% per response | No pretty-printing in responses |
+
+---
+
+## Available Tools
+
+### CMS Files (10 tools)
+| Tool | Description |
+|------|-------------|
+| `list_cms_files` | List all CMS files |
+| `create_cms_file` | Create HTTP function / cron job / default file |
+| `update_cms_file` | Update file content |
+| `get_http_function` | Get main HTTP function + collection schemas. `include_guide=true` for coding guide |
+| `update_http_function` | Create/update HTTP function (auto-deploys) |
+| `run_function` | Execute a deployed function |
+| `debug_function` | Run code in debug mode (without deploying) |
+| `save_file_version` | Save version snapshot for rollback |
+| `get_file_versions` | Get version history |
+| `toggle_debug_render` | Toggle debug render mode |
+
+### Pages (12 tools)
+| Tool | Description |
+|------|-------------|
+| `list_pages` | List all pages (metadata only, no source) |
+| `get_page_source` | Get page overview: section count, element types, custom classes |
+| `search_page_elements` | Search elements by type, id, class, text, bind, events (returns full detail) |
+| `create_page` | Create a new page |
+| `update_page` | Update page properties |
+| `get_site_custom_code` | Read current CSS/JS. `include_guide=true` for coding guide |
+| `update_site_custom_code` | Write CSS/JS custom code for the entire site |
+| `delete_page` | Delete a page |
+| `get_page_versions` | Page version history |
+| `list_page_contents` | Multi-language contents |
+| `update_page_content` | Update content for a language |
+| `list_global_sections` | List reusable global sections |
+
+### Collections — Database (3 tools)
+| Tool | Description |
+|------|-------------|
+| `list_collections` | List collections (name, table_name, field count only) |
+| `get_collection` | Get full schema: field names, types, constraints, references |
+| `query_collection_records` | Query records by table_name |
+
+### Blog Articles (5 tools)
+| Tool | Description |
+|------|-------------|
+| `list_articles` | List articles (metadata only, no HTML content) |
+| `get_article` | Get full article with HTML content |
+| `create_article` | Create article |
+| `update_article` | Update article |
+| `delete_article` | Delete article |
+
+### Customers (1 tool)
+| Tool | Description |
+|------|-------------|
+| `find_customer` | Find by ID, phone, or email |
+
+### Automation (1 tool)
+| Tool | Description |
+|------|-------------|
+| `send_mail` | Send email via CMS automation |

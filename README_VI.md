@@ -518,48 +518,321 @@ send_mail({
 
 ---
 
-## Danh sách công cụ
+## Hướng dẫn sử dụng chi tiết
 
-### Quản lý CMS Files
-- `list_cms_files` - Liệt kê tất cả CMS files
-- `create_cms_file` - Tạo HTTP function / cron job / file mặc định
-- `update_cms_file` - Cập nhật nội dung file
-- `get_http_function` - Lấy file HTTP function chính
-- `update_http_function` - Tạo/cập nhật HTTP function
-- `run_function` - Chạy một function đã triển khai
-- `debug_function` - Chạy code ở chế độ debug
-- `save_file_version` - Lưu phiên bản file
-- `get_file_versions` - Xem lịch sử phiên bản
-- `toggle_debug_render` - Bật/tắt chế độ debug
+Tất cả tools được thiết kế với mục tiêu **tối ưu token** — tools liệt kê chỉ trả metadata nhẹ, tools chi tiết trả đầy đủ dữ liệu, và guide chỉ được tải khi cần. Phần này giải thích workflow tối ưu cho từng nhóm tools.
 
-### Quản lý trang (Pages)
-- `list_pages` - Liệt kê tất cả trang (chỉ metadata)
-- `get_page_source` - Xem tổng quan source trang (element types, custom classes)
-- `search_page_elements` - Tìm kiếm elements theo type, class, text, bind
-- `create_page` - Tạo trang mới
-- `update_page` - Cập nhật thuộc tính trang
-- `get_site_custom_code` - Đọc CSS/JS custom code hiện tại của site
-- `update_site_custom_code` - Viết CSS/JS custom code cho toàn bộ site
-- `delete_page` - Xóa trang
-- `get_page_versions` - Lịch sử phiên bản trang
-- `list_page_contents` - Nội dung đa ngôn ngữ
-- `update_page_content` - Cập nhật nội dung theo ngôn ngữ
-- `list_global_sections` - Liệt kê các section dùng chung
+### CMS Files & HTTP Functions
+
+#### Đọc code — `get_http_function`
+
+Lần **gọi đầu tiên**, đặt `include_guide=true` để nhận hướng dẫn lập trình (quy ước đặt tên function, cách dùng SDK, biến global có sẵn). Các lần sau bỏ qua để tiết kiệm ~600 tokens.
+
+```
+# Lần đầu — lấy code + guide
+get_http_function({ include_guide: true })
+→ { http_function: { id, content, ... }, collections: [...], guide: "..." }
+
+# Các lần sau — chỉ lấy code
+get_http_function({})
+→ { http_function: { id, content, ... }, collections: [...] }
+```
+
+Response cũng bao gồm **schemas của các collections** (name, table_name, fields với types) để AI agent biết cấu trúc dữ liệu khi viết database queries.
+
+#### Viết code — `update_http_function`
+
+Gửi **toàn bộ nội dung file** (không phải diff). Sau khi cập nhật, code tự động deploy lên bundle service.
+
+```
+update_http_function({ content: "import { DBConnection } from 'webcake-data';\n..." })
+```
+
+#### Testing — `debug_function` vs `run_function`
+
+| Tool | Khi nào dùng |
+|------|-------------|
+| `debug_function` | Test code **trước khi deploy** — gửi code trực tiếp, nhận kết quả + console logs |
+| `run_function` | Gọi function **đã deploy** — giống gọi REST API |
+
+```
+# Debug: test code không cần lưu
+debug_function({
+  content: "export const get_Test = (request) => { return { hello: 'world' }; }",
+  function_name: "Test",
+  params: {}
+})
+
+# Run: gọi function đã deploy (lưu ý: function_name không bao gồm prefix method)
+run_function({ function_name: "Products", method: "GET", params: { page: 1 } })
+```
+
+#### Quản lý phiên bản — `save_file_version` / `get_file_versions`
+
+Lưu snapshot trước khi thay đổi lớn để có thể rollback:
+
+```
+# Lưu phiên bản hiện tại trước khi viết lại
+save_file_version({ cms_file_id: "file_123", content: "...", is_public: false })
+
+# Xem lịch sử
+get_file_versions({ cms_file_id: "file_123" })
+```
+
+---
+
+### Trang (Pages) & Custom Code
+
+#### Bước 1: Liệt kê trang — `list_pages`
+
+Trả về **chỉ metadata** (không có source data) — id, name, slug, type, is_homepage, updated_at.
+
+```
+list_pages({})
+→ [{ id: "page_1", name: "Trang chủ", slug: "/", type: "page", is_homepage: true, ... }, ...]
+```
+
+#### Bước 2: Xem tổng quan trang — `get_page_source`
+
+Trả về **tổng quan nhẹ** của cấu trúc trang — số section, số lượng theo loại element, và tất cả custom CSS classes đang dùng. KHÔNG trả về toàn bộ source data.
+
+```
+get_page_source({ page_id: "page_1" })
+→ {
+    page: { id, name, slug, type },
+    custom_code: { ... },
+    overview: {
+      sections_count: 5,
+      total_elements: 47,
+      element_types: { section: 5, container: 12, text: 15, image: 8, button: 7 },
+      custom_classes: ["hero-title", "product-card", "cta-button", ...]
+    }
+  }
+```
+
+#### Bước 3: Tìm kiếm elements cụ thể — `search_page_elements`
+
+Truy vấn elements theo nhiều bộ lọc. Trả về **đầy đủ chi tiết** cho mỗi element khớp (style, config, specials, events, bindings, responsive breakpoints).
+
+```
+# Tìm tất cả buttons
+search_page_elements({ page_id: "page_1", type: "button" })
+
+# Tìm elements có CSS class cụ thể
+search_page_elements({ page_id: "page_1", custom_class: "hero" })
+
+# Tìm text chứa "đăng ký"
+search_page_elements({ page_id: "page_1", text: "đăng ký" })
+
+# Tìm tất cả elements có data binding (product, category, blog)
+search_page_elements({ page_id: "page_1", has_bind: true })
+
+# Tìm tất cả elements có sự kiện click/submit
+search_page_elements({ page_id: "page_1", has_events: true })
+
+# Tìm tất cả elements có custom CSS classes
+search_page_elements({ page_id: "page_1", has_custom_class: true })
+
+# Kết hợp nhiều bộ lọc
+search_page_elements({ page_id: "page_1", type: "text", custom_class: "hero", limit: 10 })
+```
+
+Mỗi element khớp trả về:
+
+```json
+{
+  "id": "TEXT-3",
+  "type": "text",
+  "style": { "color": "#333", "font-size": "18px", ... },
+  "config": { ... },
+  "specials": { "text": "Đăng ký ngay", "custom_class": "cta-text", "custom_css": "..." },
+  "events": [{ "eventName": "click", "action": "open_page", ... }],
+  "bindings": [{ "name": "product", "target": "title", ... }],
+  "responsive": {
+    "bp_320_768": { "style": { "font-size": "14px" } },
+    "bp_768_1024": { "style": { "font-size": "16px" } }
+  },
+  "children_count": 3
+}
+```
+
+**CSS targeting**: Sections render thành `<section id="SECTION-1" class="x-section {custom_class}">`, elements thành `<div id="TEXT-3" class="x-element {custom_class}">`. Target bằng `#TEXT-3` (theo ID) hoặc `.cta-text` (theo custom class).
+
+#### Custom code — `get_site_custom_code` / `update_site_custom_code`
+
+**Luôn đọc trước khi viết** để tránh ghi đè code hiện có.
+
+Lần **gọi đầu tiên**, đặt `include_guide=true` để nhận hướng dẫn lập trình (~400 tokens). Các lần sau bỏ qua.
+
+```
+# Lần đầu — đọc code hiện tại + guide
+get_site_custom_code({ include_guide: true })
+→ {
+    code_before_head: "<script src='...'>",
+    code_before_body: "",
+    code_custom_css: ".hero { ... }",
+    code_custom_javascript: "document.addEventListener(...)",
+    guide: "..."
+  }
+
+# Cập nhật — chỉ gửi fields muốn thay đổi
+update_site_custom_code({ code_custom_css: ".hero { ... }\n.new-style { ... }" })
+```
+
+| Field | Vị trí chèn | Dùng cho |
+|-------|-------------|----------|
+| `code_before_head` | Trước `</head>` | Scripts bên ngoài, meta tags |
+| `code_before_body` | Trước `</body>` | Tracking scripts, chat widgets |
+| `code_custom_css` | Tự bọc trong `<style>` | CSS tùy chỉnh |
+| `code_custom_javascript` | Inline `<script>` | JavaScript tùy chỉnh |
+
+#### Workflow khuyên dùng cho tác vụ CSS/JS
+
+```
+1. list_pages()                              → tìm trang mục tiêu
+2. get_page_source({ page_id })              → hiểu cấu trúc trang
+3. search_page_elements({ page_id, ... })    → tìm elements cụ thể cần style
+4. get_site_custom_code({ include_guide: true })  → đọc code hiện có
+5. update_site_custom_code({ ... })          → viết code mới (merge với code cũ)
+```
+
+---
 
 ### Collections (Cơ sở dữ liệu)
-- `list_collections` - Liệt kê tất cả collections với schemas
-- `get_collection` - Xem chi tiết collection và định nghĩa fields
-- `query_collection_records` - Truy vấn records từ collection
+
+#### Liệt kê collections — `list_collections`
+
+Trả về **tóm tắt** — name, table_name, số fields. KHÔNG bao gồm đầy đủ schema.
+
+```
+list_collections({})
+→ {
+    data: [
+      { id: "col_1", name: "Subscribers", table_name: "subscribers", fields_count: 5 },
+      { id: "col_2", name: "Orders", table_name: "custom_orders", fields_count: 12 },
+      ...
+    ],
+    total: 8
+  }
+```
+
+#### Xem đầy đủ schema — `get_collection`
+
+Dùng khi cần biết chi tiết các fields (name, type, constraints, references) để viết queries.
+
+```
+get_collection({ id: "col_1" })
+→ { name: "Subscribers", table_name: "subscribers", schema: [
+    { name: "email", type: "string", is_required: true },
+    { name: "subscribed_at", type: "datetime", is_required: false },
+    ...
+  ]}
+```
+
+#### Truy vấn records — `query_collection_records`
+
+Xem dữ liệu hiện có bằng **table_name** (không phải collection ID).
+
+```
+query_collection_records({ table_name: "subscribers", page: 1, limit: 10 })
+```
+
+---
 
 ### Bài viết Blog
-- `list_articles` - Liệt kê bài viết có lọc
-- `get_article` - Lấy bài viết theo ID
-- `create_article` - Tạo bài viết
-- `update_article` - Cập nhật bài viết
-- `delete_article` - Xóa bài viết
 
-### Khách hàng
-- `find_customer` - Tìm theo ID, số điện thoại, hoặc email
+#### Liệt kê bài viết — `list_articles`
 
-### Tự động hóa
-- `send_mail` - Gửi email qua CMS automation
+Trả về **chỉ metadata** — không có HTML content. Tiết kiệm đáng kể tokens cho site có nhiều bài viết.
+
+```
+list_articles({ page: 1, limit: 20 })
+→ {
+    data: [
+      { id: "art_1", name: "Bắt đầu", slug: "bat-dau", summary: "...",
+        tags: ["hướng dẫn"], category_id: "cat_1", created_at: "...", updated_at: "..." },
+      ...
+    ],
+    total: 45
+  }
+```
+
+#### Xem đầy đủ bài viết — `get_article`
+
+Dùng khi cần nội dung HTML đầy đủ của một bài viết cụ thể.
+
+```
+get_article({ id: "art_1" })
+→ { id: "art_1", name: "...", content: "<h2>...</h2><p>Nội dung HTML đầy đủ...</p>", ... }
+```
+
+---
+
+### Tổng kết tối ưu Token
+
+| Kỹ thuật | Token tiết kiệm | Cách thức |
+|----------|-----------------|-----------|
+| Lazy guides (`include_guide`) | ~600-1000 mỗi lần gọi | Chỉ tải guide lần đầu |
+| List = chỉ metadata | 50-90% mỗi lần list | HTML content, source JSON, full schemas bị loại khỏi response list |
+| Overview + Search (pages) | ~85-90% | Overview cho cấu trúc, search cho chỉ elements khớp |
+| Compact JSON | ~30% mỗi response | Không pretty-print trong response |
+
+---
+
+## Danh sách công cụ
+
+### CMS Files (10 tools)
+| Tool | Mô tả |
+|------|-------|
+| `list_cms_files` | Liệt kê tất cả CMS files |
+| `create_cms_file` | Tạo HTTP function / cron job / file mặc định |
+| `update_cms_file` | Cập nhật nội dung file |
+| `get_http_function` | Lấy HTTP function chính + collection schemas. `include_guide=true` để nhận guide |
+| `update_http_function` | Tạo/cập nhật HTTP function (tự động deploy) |
+| `run_function` | Chạy function đã triển khai |
+| `debug_function` | Chạy code ở chế độ debug (không cần deploy) |
+| `save_file_version` | Lưu phiên bản để rollback |
+| `get_file_versions` | Xem lịch sử phiên bản |
+| `toggle_debug_render` | Bật/tắt chế độ debug render |
+
+### Quản lý trang — Pages (12 tools)
+| Tool | Mô tả |
+|------|-------|
+| `list_pages` | Liệt kê trang (chỉ metadata, không có source) |
+| `get_page_source` | Tổng quan trang: số section, loại element, custom classes |
+| `search_page_elements` | Tìm elements theo type, id, class, text, bind, events (trả đầy đủ chi tiết) |
+| `create_page` | Tạo trang mới |
+| `update_page` | Cập nhật thuộc tính trang |
+| `get_site_custom_code` | Đọc CSS/JS hiện tại. `include_guide=true` để nhận guide |
+| `update_site_custom_code` | Viết CSS/JS custom code cho toàn bộ site |
+| `delete_page` | Xóa trang |
+| `get_page_versions` | Lịch sử phiên bản trang |
+| `list_page_contents` | Nội dung đa ngôn ngữ |
+| `update_page_content` | Cập nhật nội dung theo ngôn ngữ |
+| `list_global_sections` | Liệt kê section dùng chung |
+
+### Collections — Cơ sở dữ liệu (3 tools)
+| Tool | Mô tả |
+|------|-------|
+| `list_collections` | Liệt kê collections (name, table_name, số fields) |
+| `get_collection` | Xem đầy đủ schema: tên field, type, constraints, references |
+| `query_collection_records` | Truy vấn records theo table_name |
+
+### Bài viết Blog (5 tools)
+| Tool | Mô tả |
+|------|-------|
+| `list_articles` | Liệt kê bài viết (chỉ metadata, không có HTML content) |
+| `get_article` | Lấy bài viết đầy đủ với HTML content |
+| `create_article` | Tạo bài viết |
+| `update_article` | Cập nhật bài viết |
+| `delete_article` | Xóa bài viết |
+
+### Khách hàng (1 tool)
+| Tool | Mô tả |
+|------|-------|
+| `find_customer` | Tìm theo ID, số điện thoại, hoặc email |
+
+### Tự động hóa (1 tool)
+| Tool | Mô tả |
+|------|-------|
+| `send_mail` | Gửi email qua CMS automation |
