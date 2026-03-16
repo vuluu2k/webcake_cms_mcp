@@ -1,2 +1,5 @@
 node_modules/
 .env
+webcake-mcp.db
+webcake-mcp.db-wal
+webcake-mcp.db-shm

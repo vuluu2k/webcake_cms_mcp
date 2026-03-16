@@ -61,6 +61,35 @@ export class WebcakeCmsApi {
     return json;
   }
 
+  // ── Account & Sites ──
+
+  getMe() {
+    return this.request("GET", `/api/v1/@me`);
+  }
+
+  listMySites(query) {
+    return this.request("GET", `/api/v1/dashboard/site/all`, { query });
+  }
+
+  getSiteInfo() {
+    return this.request("GET", `/api/v1/site/${this.siteId}/`);
+  }
+
+  /** Switch to a different site (in-memory, no restart needed) */
+  switchSite(siteId) {
+    this.siteId = siteId;
+    // Reset CMS tokens since they're site-specific
+    this._adminToken = null;
+    this._cmsApiKey = null;
+  }
+
+  /** Update auth token (in-memory) */
+  switchToken(token) {
+    this.token = token;
+    this._adminToken = null;
+    this._cmsApiKey = null;
+  }
+
   // ── CMS Files ──
 
   listCmsFiles() {

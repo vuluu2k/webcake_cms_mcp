@@ -15,17 +15,20 @@ import { registerAppTools } from "./tools/apps.js";
 import { registerPromotionTools } from "./tools/promotions.js";
 import { registerComboTools } from "./tools/combos.js";
 import { registerKnowledgeTools } from "./tools/knowledge.js";
+import { registerContextTools, applySavedContext } from "./tools/context.js";
 
 const BASE_URL = process.env.WEBCAKE_API_URL;
 const TOKEN = process.env.WEBCAKE_TOKEN;
-const SITE_ID = process.env.WEBCAKE_SITE_ID;
+const SITE_ID = process.env.WEBCAKE_SITE_ID || "";
 
-if (!BASE_URL || !TOKEN || !SITE_ID) {
-  console.error("Required env vars: WEBCAKE_API_URL, WEBCAKE_TOKEN, WEBCAKE_SITE_ID");
+if (!BASE_URL || !TOKEN) {
+  console.error("Required env vars: WEBCAKE_API_URL, WEBCAKE_TOKEN");
+  console.error("Optional: WEBCAKE_SITE_ID (can be set later via switch_site tool)");
   process.exit(1);
 }
 
 const api = new WebcakeCmsApi({ baseUrl: BASE_URL, token: TOKEN, siteId: SITE_ID });
+applySavedContext(api); // Restore last-used site_id from ~/.webcake/context.json
 const server = new McpServer({ name: "webcake-cms", version: "1.0.0" });
 
 function result(data) {
@@ -41,6 +44,7 @@ async function handle(fn) {
 }
 
 // Register all tools
+registerContextTools(server, api, handle);
 registerCmsFileTools(server, api, handle);
 registerPageTools(server, api, handle);
 registerCollectionTools(server, api, handle);
