@@ -8,6 +8,10 @@ import { registerCollectionTools } from "./tools/collections.js";
 import { registerArticleTools } from "./tools/articles.js";
 import { registerCustomerTools } from "./tools/customers.js";
 import { registerAutomationTools } from "./tools/automation.js";
+import { registerProductTools } from "./tools/products.js";
+import { registerOrderTools } from "./tools/orders.js";
+import { registerSiteStyleTools } from "./tools/site-style.js";
+import { registerAppTools } from "./tools/apps.js";
 
 const BASE_URL = process.env.WEBCAKE_API_URL;
 const TOKEN = process.env.WEBCAKE_TOKEN;
@@ -40,6 +44,10 @@ registerCollectionTools(server, api, handle);
 registerArticleTools(server, api, handle);
 registerCustomerTools(server, api, handle);
 registerAutomationTools(server, api, handle);
+registerProductTools(server, api, handle);
+registerOrderTools(server, api, handle);
+registerSiteStyleTools(server, api, handle);
+registerAppTools(server, api, handle);
 
 // Start server
 async function main() {

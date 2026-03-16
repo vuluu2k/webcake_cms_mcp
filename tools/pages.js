@@ -85,6 +85,30 @@ function nodeToDetail(node) {
   return entry;
 }
 
+/** Find a node by ID in source tree, returns reference to the node */
+function findNodeById(source, elementId) {
+  let found = null;
+  walkSource(source, (node) => {
+    if (!found && node.id === elementId) found = node;
+  });
+  return found;
+}
+
+/** Apply updates to a node in-place (shallow merge for objects, replace for arrays) */
+function applyNodeUpdates(node, updates) {
+  if (updates.style) node.style = { ...(node.style || {}), ...updates.style };
+  if (updates.config) node.config = { ...(node.config || {}), ...updates.config };
+  if (updates.specials) node.specials = { ...(node.specials || {}), ...updates.specials };
+  if (updates.events !== undefined) node.events = updates.events;
+  if (updates.bindings !== undefined) node.bindings = updates.bindings;
+  // Responsive breakpoints
+  if (updates.responsive) {
+    for (const [bp, val] of Object.entries(updates.responsive)) {
+      if (bp.startsWith("bp_")) node[bp] = val;
+    }
+  }
+}
+
 /** Search/filter elements in source by criteria */
 function searchElements(source, filters) {
   const results = [];
@@ -326,4 +350,117 @@ Examples:
   server.tool("list_global_sections", "List reusable global sections", {}, () =>
     handle(() => api.listGlobalSections())
   );
+
+  // ── Element interaction tools ──
+
+  server.tool(
+    "get_page_element",
+    "Get full detail of a single element by its ID (e.g. 'TEXT-3', 'BUTTON-1', 'SECTION-2'). Returns style, config, specials, events, bindings, responsive, and children IDs",
+    {
+      page_id: z.string().describe("Page ID"),
+      element_id: z.string().describe("Element ID (e.g. 'TEXT-3', 'BUTTON-1')"),
+    },
+    ({ page_id, element_id }) =>
+      handle(async () => {
+        const res = await api.listPages();
+        const pages = (res && res.data) || res || [];
+        const page = Array.isArray(pages) ? pages.find((p) => p.id === page_id) : null;
+        if (!page) return { error: "Page not found" };
+
+        const source = parseSource(page.source && page.source.source);
+        if (!source) return { error: "Page has no source" };
+
+        const node = findNodeById(source, element_id);
+        if (!node) return { error: `Element "${element_id}" not found` };
+
+        const detail = nodeToDetail(node);
+        // Also include children IDs for navigation
+        if (node.children && node.children.length) {
+          detail.children = node.children.map((c) => ({ id: c.id, type: c.type }));
+        }
+        return detail;
+      })
+  );
+
+  server.tool(
+    "update_page_element",
+    `Update properties of a specific element in page source. Finds the element by ID, merges updates, saves back.
+- style: shallow merge with existing (only send changed CSS properties)
+- config: shallow merge with existing
+- specials: shallow merge (update text, custom_class, custom_css individually)
+- events: replaces entire events array
+- bindings: replaces entire bindings array
+- responsive: merge by breakpoint key (e.g. "bp_320_768")`,
+    {
+      page_id: z.string().describe("Page ID"),
+      element_id: z.string().describe("Element ID to update (e.g. 'TEXT-3', 'BUTTON-1')"),
+      style: z.record(z.any()).optional().describe("CSS style properties to merge (e.g. {color: '#fff', 'font-size': '16px'})"),
+      config: z.record(z.any()).optional().describe("Config properties to merge"),
+      specials: z.record(z.any()).optional().describe("Specials to merge (text, custom_class, custom_css, etc.)"),
+      events: z.array(z.record(z.any())).optional().describe("Complete events array (replaces existing)"),
+      bindings: z.array(z.record(z.any())).optional().describe("Complete bindings array (replaces existing)"),
+      responsive: z.record(z.any()).optional().describe("Responsive breakpoint overrides (e.g. {bp_320_768: {style: {...}}})"),
+    },
+    ({ page_id, element_id, ...updates }) =>
+      handle(async () => {
+        const res = await api.listPages();
+        const pages = (res && res.data) || res || [];
+        const page = Array.isArray(pages) ? pages.find((p) => p.id === page_id) : null;
+        if (!page) return { error: "Page not found" };
+
+        const source = parseSource(page.source && page.source.source);
+        if (!source) return { error: "Page has no source" };
+
+        const node = findNodeById(source, element_id);
+        if (!node) return { error: `Element "${element_id}" not found` };
+
+        applyNodeUpdates(node, updates);
+        await api.updatePageSource(page_id, { source: JSON.stringify(source) });
+        return { success: true, element: nodeToDetail(node) };
+      })
+  );
+
+  server.tool(
+    "update_page_elements",
+    `Batch update multiple elements in one page. Each update specifies element_id and properties to change.
+Same merge rules as update_page_element: style/config/specials are shallow-merged, events/bindings are replaced`,
+    {
+      page_id: z.string().describe("Page ID"),
+      updates: z.array(z.object({
+        element_id: z.string().describe("Element ID"),
+        style: z.record(z.any()).optional(),
+        config: z.record(z.any()).optional(),
+        specials: z.record(z.any()).optional(),
+        events: z.array(z.record(z.any())).optional(),
+        bindings: z.array(z.record(z.any())).optional(),
+        responsive: z.record(z.any()).optional(),
+      })).describe("Array of element updates"),
+    },
+    ({ page_id, updates: elementUpdates }) =>
+      handle(async () => {
+        const res = await api.listPages();
+        const pages = (res && res.data) || res || [];
+        const page = Array.isArray(pages) ? pages.find((p) => p.id === page_id) : null;
+        if (!page) return { error: "Page not found" };
+
+        const source = parseSource(page.source && page.source.source);
+        if (!source) return { error: "Page has no source" };
+
+        const results = [];
+        for (const upd of elementUpdates) {
+          const node = findNodeById(source, upd.element_id);
+          if (!node) {
+            results.push({ element_id: upd.element_id, error: "Not found" });
+            continue;
+          }
+          const { element_id, ...updates } = upd;
+          applyNodeUpdates(node, updates);
+          results.push({ element_id, success: true });
+        }
+
+        await api.updatePageSource(page_id, { source: JSON.stringify(source) });
+        return { success: true, updated: results };
+      })
+  );
+
 }

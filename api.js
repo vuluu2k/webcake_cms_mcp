@@ -126,6 +126,10 @@ export class WebcakeCmsApi {
     return this.request("POST", `/api/v1/site/${this.siteId}/${pageId}/update_page`, { body: params });
   }
 
+  updatePageSource(pageId, params) {
+    return this.request("POST", `/api/v1/site/${this.siteId}/${pageId}/update_page_source`, { body: params });
+  }
+
   deletePage(params) {
     return this.request("POST", `/api/v1/site/${this.siteId}/delete_page`, { body: params });
   }
@@ -191,6 +195,58 @@ export class WebcakeCmsApi {
 
   deleteArticle(id) {
     return this.request("DELETE", `/api/v1/cms_function/${this.siteId}/blog/article/${id}`);
+  }
+
+  // ── Products ──
+
+  listProducts(query) {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/products/all`, { query });
+  }
+
+  getProduct(id) {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/products/${id}`);
+  }
+
+  searchProducts(query) {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/products/search`, { query });
+  }
+
+  listCategories() {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/categories/all`);
+  }
+
+  getProductsByCategory(categoryId) {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/categories/products`, { query: { category_id: categoryId } });
+  }
+
+  // ── Orders ──
+
+  listOrders(query) {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/orders/all`, { query });
+  }
+
+  getOrder(orderId) {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/orders/${orderId}`);
+  }
+
+  countOrdersByStatus() {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/orders/count_by_status`);
+  }
+
+  // ── Site Style / Themes ──
+
+  listThemes() {
+    return this.request("GET", `/api/v1/site/${this.siteId}/themes`);
+  }
+
+  // ── Applications ──
+
+  listApps() {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/applications/subcriptions/all`);
+  }
+
+  getApp(type) {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/applications/subcriptions/get_app`, { query: { type } });
   }
 
   // ── Customers ──

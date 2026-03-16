@@ -483,6 +483,36 @@ send_mail({
 
 ---
 
+### Example 6: Find and update page elements
+
+**Prompt:**
+```
+Change the hero title color to red and update the CTA button text to "Buy Now"
+```
+
+**AI agent calls 3 tools:**
+
+```
+# Step 1: Find the hero title
+search_page_elements({ page_id: "page_1", custom_class: "hero-title" })
+→ { matched: 1, elements: [{ id: "TEXT-3", type: "text", ... }] }
+
+# Step 2: Find the CTA button
+search_page_elements({ page_id: "page_1", custom_class: "cta" })
+→ { matched: 1, elements: [{ id: "BUTTON-1", type: "button", ... }] }
+
+# Step 3: Update both elements at once
+update_page_elements({
+  page_id: "page_1",
+  updates: [
+    { element_id: "TEXT-3", style: { "color": "#ff0000" } },
+    { element_id: "BUTTON-1", specials: { "text": "Buy Now" } }
+  ]
+})
+```
+
+---
+
 ## Detailed Tool Usage Guide
 
 All tools are designed with **token optimization** in mind — list tools return lightweight metadata, detail tools return full data, and guides are loaded on-demand. This section explains the optimal workflow for each tool group.
@@ -651,14 +681,116 @@ update_site_custom_code({ code_custom_css: ".hero { ... }\n.new-style { ... }" }
 | `code_custom_css` | Auto-wrapped in `<style>` | Custom CSS styles |
 | `code_custom_javascript` | As inline `<script>` | Custom JavaScript |
 
-#### Recommended workflow for CSS/JS tasks
+#### Step 4: Update elements — `update_page_element` / `update_page_elements`
 
+After finding elements via search, update their properties directly in the page source.
+
+**Single element update:**
+```
+# Change text and style of a specific element
+update_page_element({
+  page_id: "page_1",
+  element_id: "TEXT-3",
+  style: { "color": "#ff0000", "font-size": "24px" },
+  specials: { "text": "New heading text", "custom_class": "hero-title,bold" }
+})
+
+# Add events to a button
+update_page_element({
+  page_id: "page_1",
+  element_id: "BUTTON-1",
+  events: [{ "eventName": "click", "action": "open_page", "open_page_id": "page_2" }]
+})
+
+# Update responsive styles
+update_page_element({
+  page_id: "page_1",
+  element_id: "TEXT-3",
+  responsive: {
+    "bp_320_768": { "style": { "font-size": "14px" } },
+    "bp_768_1024": { "style": { "font-size": "18px" } }
+  }
+})
+```
+
+**Batch update multiple elements at once:**
+```
+update_page_elements({
+  page_id: "page_1",
+  updates: [
+    { element_id: "TEXT-1", specials: { "text": "Welcome" } },
+    { element_id: "TEXT-2", style: { "color": "#333" } },
+    { element_id: "BUTTON-1", specials: { "custom_class": "cta-primary" } }
+  ]
+})
+```
+
+**Merge rules:**
+| Property | Behavior | Example |
+|----------|----------|---------|
+| `style` | Shallow merge | Only changed CSS properties are updated, others kept |
+| `config` | Shallow merge | Same as style |
+| `specials` | Shallow merge | Update `text`, `custom_class`, `custom_css` individually |
+| `events` | Replace | Entire events array is replaced (get current first) |
+| `bindings` | Replace | Entire bindings array is replaced |
+| `responsive` | Merge by breakpoint | Each `bp_*` key is set/replaced individually |
+
+#### Get single element detail — `get_page_element`
+
+Get full detail of one element by its ID, including children IDs for tree navigation.
+
+```
+get_page_element({ page_id: "page_1", element_id: "SECTION-1" })
+→ { id: "SECTION-1", type: "section", style: {...}, specials: {...},
+    children: [{ id: "CONTAINER-1", type: "container" }, { id: "TEXT-1", type: "text" }] }
+```
+
+#### Custom code — `get_site_custom_code` / `update_site_custom_code`
+
+**Always read before writing** to avoid overwriting existing code.
+
+On the **first call**, set `include_guide=true` to get the coding guide (~400 tokens). Omit on subsequent calls.
+
+```
+# First time — read current code + guide
+get_site_custom_code({ include_guide: true })
+→ {
+    code_before_head: "<script src='...'>",
+    code_before_body: "",
+    code_custom_css: ".hero { ... }",
+    code_custom_javascript: "document.addEventListener(...)",
+    guide: "..."
+  }
+
+# Update — only send the fields you want to change
+update_site_custom_code({ code_custom_css: ".hero { ... }\n.new-style { ... }" })
+```
+
+| Field | Where it's injected | Use for |
+|-------|-------------------|---------|
+| `code_before_head` | Before `</head>` | External scripts, meta tags |
+| `code_before_body` | Before `</body>` | Tracking scripts, chat widgets |
+| `code_custom_css` | Auto-wrapped in `<style>` | Custom CSS styles |
+| `code_custom_javascript` | As inline `<script>` | Custom JavaScript |
+
+#### Recommended workflows
+
+**CSS/JS tasks:**
 ```
 1. list_pages()                              → find the target page
 2. get_page_source({ page_id })              → understand page structure
 3. search_page_elements({ page_id, ... })    → find specific elements to style
 4. get_site_custom_code({ include_guide: true })  → read existing code
 5. update_site_custom_code({ ... })          → write new code (merged with existing)
+```
+
+**Direct element modification:**
+```
+1. list_pages()                              → find the target page
+2. get_page_source({ page_id })              → overview of elements
+3. search_page_elements({ page_id, ... })    → find elements to modify
+4. update_page_element({ page_id, element_id, ... })  → update properties
+   or update_page_elements({ page_id, updates: [...] })  → batch update
 ```
 
 ---
@@ -733,6 +865,140 @@ get_article({ id: "art_1" })
 
 ---
 
+### Products
+
+#### List products — `list_products`
+
+Returns **metadata only** — id, name, slug, price, image, status. No full description or variations.
+
+```
+list_products({ page: 1, limit: 20, term: "shirt" })
+→ {
+    data: [
+      { id: "prod_1", name: "Blue Shirt", slug: "blue-shirt", price: 29.99,
+        image: "https://...", is_published: true, total_sold: 150, ... },
+      ...
+    ],
+    total: 42
+  }
+```
+
+#### Get full product — `get_product`
+
+Returns complete product data: description, variations (sizes/colors/prices), attributes, images, SEO meta.
+
+```
+get_product({ id: "prod_1" })
+→ { id: "prod_1", name: "Blue Shirt", description: "<p>...</p>",
+    variations: [...], product_attributes: [...], meta_tags: [...], ... }
+```
+
+#### Search products — `search_products`
+
+Quick keyword search across product names.
+
+```
+search_products({ term: "summer dress", limit: 10 })
+```
+
+#### Product categories — `list_categories`
+
+List all product categories of the site.
+
+```
+list_categories({})
+→ [{ id: "cat_1", name: "Shirts", slug: "shirts", ... }, ...]
+```
+
+---
+
+### Orders
+
+#### List orders — `list_orders`
+
+Returns order **metadata only** — customer name, status, total value. No item details.
+
+```
+list_orders({ page: 1, limit: 20, status: 50 })
+→ {
+    data: [
+      { id: "ord_1", bill_full_name: "John Doe", status: 50,
+        invoice_value: 99.99, items_count: 3, created_at: "..." },
+      ...
+    ],
+    total: 128
+  }
+```
+
+**Status codes:** 0=pending, 50=confirmed, 100=shipping, 150=delivered, -1=cancelled
+
+#### Get full order — `get_order`
+
+Returns complete order: items with product details, customer info, payment, shipping, discounts.
+
+```
+get_order({ id: "ord_1" })
+→ { id: "ord_1", bill_full_name: "John Doe", items: [...], shipping_address: {...}, ... }
+```
+
+#### Order statistics — `count_orders_by_status`
+
+Get order count grouped by status for dashboard overview.
+
+```
+count_orders_by_status({})
+→ { pending: 5, confirmed: 12, shipping: 3, delivered: 108, cancelled: 2 }
+```
+
+---
+
+### Site Style & Theme
+
+#### Site info — `get_site_info`
+
+Get full site configuration: name, domain, logo, and **all settings** (colors, typography, layout, language, payment methods, etc.).
+
+```
+get_site_info({})
+→ { id: "site_1", name: "My Store", domain: "mystore.storecake.io",
+    settings: { primary_colors: [...], typography: {...}, layout_mode: "...", ... } }
+```
+
+#### Themes — `list_themes`
+
+List all custom themes: colors, typographies, transitions, and which is currently active.
+
+```
+list_themes({})
+→ [{ id: "theme_1", name: "Modern", colors: {...}, typographies: {...}, is_selected: true }, ...]
+```
+
+---
+
+### Applications
+
+#### Installed apps — `list_apps`
+
+List all installed applications/subscriptions with their settings and status.
+
+```
+list_apps({})
+→ [{ id: "app_1", type: 1, is_active: true, settings: {...} }, ...]
+```
+
+**Common app types:** 1=CMS, 2=Product Design, 10=Multilingual
+
+#### Get app detail — `get_app`
+
+Get a specific app by its type ID.
+
+```
+get_app({ type: "1" })
+→ { id: "app_1", type: 1, is_active: true, settings: {...} }
+```
+
+---
+
 ### Token Optimization Summary
 
 | Pattern | Tokens saved | How |
@@ -760,12 +1026,15 @@ get_article({ id: "art_1" })
 | `get_file_versions` | Get version history |
 | `toggle_debug_render` | Toggle debug render mode |
 
-### Pages (12 tools)
+### Pages (15 tools)
 | Tool | Description |
 |------|-------------|
 | `list_pages` | List all pages (metadata only, no source) |
 | `get_page_source` | Get page overview: section count, element types, custom classes |
 | `search_page_elements` | Search elements by type, id, class, text, bind, events (returns full detail) |
+| `get_page_element` | Get full detail of a single element by ID (includes children IDs) |
+| `update_page_element` | Update element properties: style, config, specials, events, bindings, responsive |
+| `update_page_elements` | Batch update multiple elements in one call |
 | `create_page` | Create a new page |
 | `update_page` | Update page properties |
 | `get_site_custom_code` | Read current CSS/JS. `include_guide=true` for coding guide |
@@ -791,6 +1060,33 @@ get_article({ id: "art_1" })
 | `create_article` | Create article |
 | `update_article` | Update article |
 | `delete_article` | Delete article |
+
+### Products (4 tools)
+| Tool | Description |
+|------|-------------|
+| `list_products` | List products (metadata: name, slug, price, image, status) |
+| `get_product` | Get full product: description, variations, attributes, images, SEO |
+| `search_products` | Search products by keyword |
+| `list_categories` | List all product categories |
+
+### Orders (3 tools)
+| Tool | Description |
+|------|-------------|
+| `list_orders` | List orders (metadata: customer, status, total, items count) |
+| `get_order` | Get full order: items, payment, shipping, discounts |
+| `count_orders_by_status` | Order count grouped by status |
+
+### Site Style & Theme (2 tools)
+| Tool | Description |
+|------|-------------|
+| `get_site_info` | Get site name, domain, logo, and all design settings |
+| `list_themes` | List custom themes: colors, typography, transitions |
+
+### Applications (2 tools)
+| Tool | Description |
+|------|-------------|
+| `list_apps` | List installed apps with settings and status |
+| `get_app` | Get specific app by type ID |
 
 ### Customers (1 tool)
 | Tool | Description |

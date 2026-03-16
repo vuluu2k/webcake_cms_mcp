@@ -518,6 +518,36 @@ send_mail({
 
 ---
 
+### Ví dụ 6: Tìm và cập nhật elements trên trang
+
+**Prompt:**
+```
+Đổi màu tiêu đề hero sang đỏ và cập nhật text nút CTA thành "Mua ngay"
+```
+
+**AI agent gọi 3 tools:**
+
+```
+# Bước 1: Tìm tiêu đề hero
+search_page_elements({ page_id: "page_1", custom_class: "hero-title" })
+→ { matched: 1, elements: [{ id: "TEXT-3", type: "text", ... }] }
+
+# Bước 2: Tìm nút CTA
+search_page_elements({ page_id: "page_1", custom_class: "cta" })
+→ { matched: 1, elements: [{ id: "BUTTON-1", type: "button", ... }] }
+
+# Bước 3: Cập nhật cả hai elements cùng lúc
+update_page_elements({
+  page_id: "page_1",
+  updates: [
+    { element_id: "TEXT-3", style: { "color": "#ff0000" } },
+    { element_id: "BUTTON-1", specials: { "text": "Mua ngay" } }
+  ]
+})
+```
+
+---
+
 ## Hướng dẫn sử dụng chi tiết
 
 Tất cả tools được thiết kế với mục tiêu **tối ưu token** — tools liệt kê chỉ trả metadata nhẹ, tools chi tiết trả đầy đủ dữ liệu, và guide chỉ được tải khi cần. Phần này giải thích workflow tối ưu cho từng nhóm tools.
@@ -658,6 +688,70 @@ Mỗi element khớp trả về:
 
 **CSS targeting**: Sections render thành `<section id="SECTION-1" class="x-section {custom_class}">`, elements thành `<div id="TEXT-3" class="x-element {custom_class}">`. Target bằng `#TEXT-3` (theo ID) hoặc `.cta-text` (theo custom class).
 
+#### Bước 4: Cập nhật elements — `update_page_element` / `update_page_elements`
+
+Sau khi tìm elements qua search, cập nhật trực tiếp các thuộc tính trong page source.
+
+**Cập nhật từng element:**
+```
+# Đổi text và style của element cụ thể
+update_page_element({
+  page_id: "page_1",
+  element_id: "TEXT-3",
+  style: { "color": "#ff0000", "font-size": "24px" },
+  specials: { "text": "Tiêu đề mới", "custom_class": "hero-title,bold" }
+})
+
+# Thêm events cho button
+update_page_element({
+  page_id: "page_1",
+  element_id: "BUTTON-1",
+  events: [{ "eventName": "click", "action": "open_page", "open_page_id": "page_2" }]
+})
+
+# Cập nhật style responsive
+update_page_element({
+  page_id: "page_1",
+  element_id: "TEXT-3",
+  responsive: {
+    "bp_320_768": { "style": { "font-size": "14px" } },
+    "bp_768_1024": { "style": { "font-size": "18px" } }
+  }
+})
+```
+
+**Cập nhật hàng loạt nhiều elements cùng lúc:**
+```
+update_page_elements({
+  page_id: "page_1",
+  updates: [
+    { element_id: "TEXT-1", specials: { "text": "Xin chào" } },
+    { element_id: "TEXT-2", style: { "color": "#333" } },
+    { element_id: "BUTTON-1", specials: { "custom_class": "cta-primary" } }
+  ]
+})
+```
+
+**Quy tắc merge:**
+| Thuộc tính | Hành vi | Giải thích |
+|------------|---------|------------|
+| `style` | Shallow merge | Chỉ CSS properties thay đổi được cập nhật, còn lại giữ nguyên |
+| `config` | Shallow merge | Tương tự style |
+| `specials` | Shallow merge | Cập nhật `text`, `custom_class`, `custom_css` riêng lẻ |
+| `events` | Thay thế | Toàn bộ mảng events bị thay thế (lấy hiện tại trước) |
+| `bindings` | Thay thế | Toàn bộ mảng bindings bị thay thế |
+| `responsive` | Merge theo breakpoint | Mỗi key `bp_*` được set/thay thế riêng |
+
+#### Xem chi tiết element — `get_page_element`
+
+Lấy đầy đủ thông tin của một element theo ID, bao gồm danh sách children để duyệt cây.
+
+```
+get_page_element({ page_id: "page_1", element_id: "SECTION-1" })
+→ { id: "SECTION-1", type: "section", style: {...}, specials: {...},
+    children: [{ id: "CONTAINER-1", type: "container" }, { id: "TEXT-1", type: "text" }] }
+```
+
 #### Custom code — `get_site_custom_code` / `update_site_custom_code`
 
 **Luôn đọc trước khi viết** để tránh ghi đè code hiện có.
@@ -686,14 +780,24 @@ update_site_custom_code({ code_custom_css: ".hero { ... }\n.new-style { ... }" }
 | `code_custom_css` | Tự bọc trong `<style>` | CSS tùy chỉnh |
 | `code_custom_javascript` | Inline `<script>` | JavaScript tùy chỉnh |
 
-#### Workflow khuyên dùng cho tác vụ CSS/JS
+#### Workflow khuyên dùng
 
+**Tác vụ CSS/JS:**
 ```
 1. list_pages()                              → tìm trang mục tiêu
 2. get_page_source({ page_id })              → hiểu cấu trúc trang
 3. search_page_elements({ page_id, ... })    → tìm elements cụ thể cần style
 4. get_site_custom_code({ include_guide: true })  → đọc code hiện có
 5. update_site_custom_code({ ... })          → viết code mới (merge với code cũ)
+```
+
+**Sửa đổi trực tiếp elements:**
+```
+1. list_pages()                              → tìm trang mục tiêu
+2. get_page_source({ page_id })              → tổng quan elements
+3. search_page_elements({ page_id, ... })    → tìm elements cần sửa
+4. update_page_element({ page_id, element_id, ... })  → cập nhật thuộc tính
+   hoặc update_page_elements({ page_id, updates: [...] })  → cập nhật hàng loạt
 ```
 
 ---
@@ -768,6 +872,140 @@ get_article({ id: "art_1" })
 
 ---
 
+### Sản phẩm (Products)
+
+#### Liệt kê sản phẩm — `list_products`
+
+Trả về **chỉ metadata** — id, name, slug, price, image, trạng thái. Không có mô tả đầy đủ hay biến thể.
+
+```
+list_products({ page: 1, limit: 20, term: "áo" })
+→ {
+    data: [
+      { id: "prod_1", name: "Áo xanh", slug: "ao-xanh", price: 299000,
+        image: "https://...", is_published: true, total_sold: 150, ... },
+      ...
+    ],
+    total: 42
+  }
+```
+
+#### Xem chi tiết sản phẩm — `get_product`
+
+Trả về đầy đủ: mô tả, biến thể (size/màu/giá), thuộc tính, hình ảnh, SEO meta.
+
+```
+get_product({ id: "prod_1" })
+→ { id: "prod_1", name: "Áo xanh", description: "<p>...</p>",
+    variations: [...], product_attributes: [...], meta_tags: [...], ... }
+```
+
+#### Tìm kiếm sản phẩm — `search_products`
+
+Tìm kiếm nhanh theo tên sản phẩm.
+
+```
+search_products({ term: "váy hè", limit: 10 })
+```
+
+#### Danh mục sản phẩm — `list_categories`
+
+Liệt kê tất cả danh mục sản phẩm.
+
+```
+list_categories({})
+→ [{ id: "cat_1", name: "Áo", slug: "ao", ... }, ...]
+```
+
+---
+
+### Đơn hàng (Orders)
+
+#### Liệt kê đơn hàng — `list_orders`
+
+Trả về **chỉ metadata** — tên khách, trạng thái, tổng giá trị. Không có chi tiết sản phẩm.
+
+```
+list_orders({ page: 1, limit: 20, status: 50 })
+→ {
+    data: [
+      { id: "ord_1", bill_full_name: "Nguyễn Văn A", status: 50,
+        invoice_value: 999000, items_count: 3, created_at: "..." },
+      ...
+    ],
+    total: 128
+  }
+```
+
+**Mã trạng thái:** 0=chờ xử lý, 50=đã xác nhận, 100=đang giao, 150=đã giao, -1=đã hủy
+
+#### Xem chi tiết đơn hàng — `get_order`
+
+Trả về đầy đủ: sản phẩm, thanh toán, vận chuyển, giảm giá.
+
+```
+get_order({ id: "ord_1" })
+→ { id: "ord_1", bill_full_name: "Nguyễn Văn A", items: [...], shipping_address: {...}, ... }
+```
+
+#### Thống kê đơn hàng — `count_orders_by_status`
+
+Đếm đơn hàng theo trạng thái cho tổng quan dashboard.
+
+```
+count_orders_by_status({})
+→ { pending: 5, confirmed: 12, shipping: 3, delivered: 108, cancelled: 2 }
+```
+
+---
+
+### Giao diện & Theme
+
+#### Thông tin site — `get_site_info`
+
+Lấy cấu hình site đầy đủ: tên, domain, logo, và **tất cả settings** (màu sắc, typography, layout, ngôn ngữ, phương thức thanh toán, v.v.).
+
+```
+get_site_info({})
+→ { id: "site_1", name: "Cửa hàng", domain: "cuahang.storecake.io",
+    settings: { primary_colors: [...], typography: {...}, layout_mode: "...", ... } }
+```
+
+#### Themes — `list_themes`
+
+Liệt kê tất cả theme tùy chỉnh: màu sắc, typography, transitions, và theme nào đang active.
+
+```
+list_themes({})
+→ [{ id: "theme_1", name: "Modern", colors: {...}, typographies: {...}, is_selected: true }, ...]
+```
+
+---
+
+### Ứng dụng (Applications)
+
+#### Ứng dụng đã cài — `list_apps`
+
+Liệt kê tất cả ứng dụng đã cài với settings và trạng thái.
+
+```
+list_apps({})
+→ [{ id: "app_1", type: 1, is_active: true, settings: {...} }, ...]
+```
+
+**Loại app phổ biến:** 1=CMS, 2=Product Design, 10=Đa ngôn ngữ
+
+#### Chi tiết ứng dụng — `get_app`
+
+Lấy thông tin app cụ thể theo type ID.
+
+```
+get_app({ type: "1" })
+→ { id: "app_1", type: 1, is_active: true, settings: {...} }
+```
+
+---
+
 ### Tổng kết tối ưu Token
 
 | Kỹ thuật | Token tiết kiệm | Cách thức |
@@ -795,12 +1033,15 @@ get_article({ id: "art_1" })
 | `get_file_versions` | Xem lịch sử phiên bản |
 | `toggle_debug_render` | Bật/tắt chế độ debug render |
 
-### Quản lý trang — Pages (12 tools)
+### Quản lý trang — Pages (15 tools)
 | Tool | Mô tả |
 |------|-------|
 | `list_pages` | Liệt kê trang (chỉ metadata, không có source) |
 | `get_page_source` | Tổng quan trang: số section, loại element, custom classes |
 | `search_page_elements` | Tìm elements theo type, id, class, text, bind, events (trả đầy đủ chi tiết) |
+| `get_page_element` | Xem chi tiết một element theo ID (bao gồm danh sách children) |
+| `update_page_element` | Cập nhật thuộc tính element: style, config, specials, events, bindings, responsive |
+| `update_page_elements` | Cập nhật hàng loạt nhiều elements trong một lần gọi |
 | `create_page` | Tạo trang mới |
 | `update_page` | Cập nhật thuộc tính trang |
 | `get_site_custom_code` | Đọc CSS/JS hiện tại. `include_guide=true` để nhận guide |
@@ -826,6 +1067,33 @@ get_article({ id: "art_1" })
 | `create_article` | Tạo bài viết |
 | `update_article` | Cập nhật bài viết |
 | `delete_article` | Xóa bài viết |
+
+### Sản phẩm — Products (4 tools)
+| Tool | Mô tả |
+|------|-------|
+| `list_products` | Liệt kê sản phẩm (metadata: tên, slug, giá, ảnh, trạng thái) |
+| `get_product` | Xem chi tiết: mô tả, biến thể, thuộc tính, ảnh, SEO |
+| `search_products` | Tìm kiếm sản phẩm theo từ khóa |
+| `list_categories` | Liệt kê tất cả danh mục sản phẩm |
+
+### Đơn hàng — Orders (3 tools)
+| Tool | Mô tả |
+|------|-------|
+| `list_orders` | Liệt kê đơn hàng (metadata: khách, trạng thái, tổng tiền, số SP) |
+| `get_order` | Xem chi tiết: sản phẩm, thanh toán, vận chuyển, giảm giá |
+| `count_orders_by_status` | Đếm đơn hàng theo trạng thái |
+
+### Giao diện & Theme (2 tools)
+| Tool | Mô tả |
+|------|-------|
+| `get_site_info` | Lấy tên site, domain, logo, và tất cả settings thiết kế |
+| `list_themes` | Liệt kê theme tùy chỉnh: màu sắc, typography, transitions |
+
+### Ứng dụng — Applications (2 tools)
+| Tool | Mô tả |
+|------|-------|
+| `list_apps` | Liệt kê ứng dụng đã cài với settings và trạng thái |
+| `get_app` | Xem chi tiết ứng dụng theo type ID |
 
 ### Khách hàng (1 tool)
 | Tool | Mô tả |
