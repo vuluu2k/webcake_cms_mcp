@@ -129,6 +129,9 @@ npm install
 | `WEBCAKE_API_URL` | WebCake API base URL (e.g. `https://api.storecake.io`) |
 | `WEBCAKE_TOKEN` | JWT Bearer token (dashboard auth) |
 | `WEBCAKE_SITE_ID` | Target site ID |
+| `WEBCAKE_KNOWLEDGE_DIR` | *(Optional)* Path to local knowledge files directory (default: `./knowledge`) |
+| `WEBCAKE_KNOWLEDGE_REPO` | *(Optional)* GitHub repo for knowledge files (e.g. `owner/repo` or full URL) |
+| `WEBCAKE_KNOWLEDGE_TOKEN` | *(Optional)* GitHub token for private repos |
 
 > CMS admin token and CMS API key are automatically fetched via API when needed (no manual config required).
 
@@ -999,6 +1002,97 @@ get_app({ type: "1" })
 
 ---
 
+### Custom Knowledge (Training)
+
+Add your own knowledge files so AI agents have custom context about your business, coding standards, or workflows.
+
+Knowledge supports two sources: **local files** and **GitHub repo**. Both can be used together — local files take priority if names conflict.
+
+#### Source 1: Local files
+
+Drop `.md` or `.txt` files into the `knowledge/` directory (next to `index.js`):
+
+```
+knowledge/
+  business-rules.md
+  coding-standards.md
+  api-docs.md
+```
+
+Or set a custom directory:
+```json
+{ "env": { "WEBCAKE_KNOWLEDGE_DIR": "/path/to/my/knowledge" } }
+```
+
+#### Source 2: GitHub repo
+
+Point to a GitHub repo containing knowledge files. The AI agent will fetch and read them automatically.
+
+```json
+{
+  "env": {
+    "WEBCAKE_KNOWLEDGE_REPO": "your-org/my-knowledge"
+  }
+}
+```
+
+**Supported formats:**
+
+| Format | Example |
+|--------|---------|
+| `owner/repo` | `acme/knowledge-base` |
+| `owner/repo/subdir` | `acme/docs/ai-guides` |
+| Full URL | `https://github.com/acme/knowledge-base` |
+| URL with branch + path | `https://github.com/acme/docs/tree/main/ai-guides` |
+
+**Private repos** — add a GitHub personal access token:
+```json
+{
+  "env": {
+    "WEBCAKE_KNOWLEDGE_REPO": "your-org/private-knowledge",
+    "WEBCAKE_KNOWLEDGE_TOKEN": "ghp_xxxxxxxxxxxx"
+  }
+}
+```
+
+Files are cached for 5 minutes to avoid GitHub API rate limits.
+
+#### File format
+
+Files support optional frontmatter for name and description:
+
+```markdown
+---
+name: Business Rules
+description: E-commerce shipping and return policies
+tags: business, policy
+---
+
+## Shipping Policy
+- Free shipping for orders over $50
+- Express shipping: 2-3 business days
+...
+```
+
+#### Usage
+
+```
+# List available knowledge files
+list_knowledge({})
+→ { files: [
+    { file: "business-rules", name: "Business Rules", description: "E-commerce shipping..." },
+    { file: "coding-standards", name: "Coding Standards", description: "..." }
+  ]}
+
+# Read a specific file
+get_knowledge({ file: "business-rules" })
+→ { file: "business-rules.md", name: "Business Rules", content: "## Shipping Policy\n..." }
+```
+
+AI agents will use this knowledge as context when helping with tasks. For example, if you have shipping rules documented, the AI will reference them when writing order-related code.
+
+---
+
 ### Token Optimization Summary
 
 | Pattern | Tokens saved | How |
@@ -1087,6 +1181,12 @@ get_app({ type: "1" })
 |------|-------------|
 | `list_apps` | List installed apps with settings and status |
 | `get_app` | Get specific app by type ID |
+
+### Custom Knowledge (2 tools)
+| Tool | Description |
+|------|-------------|
+| `list_knowledge` | List all custom knowledge/guide files |
+| `get_knowledge` | Read a specific knowledge file |
 
 ### Customers (1 tool)
 | Tool | Description |

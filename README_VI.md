@@ -129,6 +129,9 @@ npm install
 | `WEBCAKE_API_URL` | URL gốc của WebCake API (vd: `https://api.storecake.io`) |
 | `WEBCAKE_TOKEN` | JWT Bearer token (xác thực dashboard) |
 | `WEBCAKE_SITE_ID` | ID của site cần thao tác |
+| `WEBCAKE_KNOWLEDGE_DIR` | *(Tùy chọn)* Đường dẫn thư mục knowledge local (mặc định: `./knowledge`) |
+| `WEBCAKE_KNOWLEDGE_REPO` | *(Tùy chọn)* GitHub repo chứa knowledge (vd: `owner/repo` hoặc URL đầy đủ) |
+| `WEBCAKE_KNOWLEDGE_TOKEN` | *(Tùy chọn)* GitHub token cho repo private |
 
 > CMS admin token và CMS API key được tự động lấy qua API khi cần (không cần cấu hình thủ công).
 
@@ -1006,6 +1009,97 @@ get_app({ type: "1" })
 
 ---
 
+### Knowledge tùy chỉnh (Training)
+
+Thêm knowledge/hướng dẫn riêng để AI agent có thêm ngữ cảnh về doanh nghiệp, quy chuẩn code, hoặc workflow của bạn.
+
+Knowledge hỗ trợ hai nguồn: **file local** và **GitHub repo**. Có thể dùng cả hai — file local được ưu tiên nếu trùng tên.
+
+#### Nguồn 1: File local
+
+Đặt file `.md` hoặc `.txt` vào thư mục `knowledge/` (cùng cấp với `index.js`):
+
+```
+knowledge/
+  quy-tac-kinh-doanh.md
+  quy-chuan-code.md
+  api-docs.md
+```
+
+Hoặc đặt thư mục tùy chỉnh:
+```json
+{ "env": { "WEBCAKE_KNOWLEDGE_DIR": "/duong-dan/toi/knowledge" } }
+```
+
+#### Nguồn 2: GitHub repo
+
+Trỏ tới GitHub repo chứa knowledge files. AI agent sẽ tự fetch và đọc.
+
+```json
+{
+  "env": {
+    "WEBCAKE_KNOWLEDGE_REPO": "your-org/my-knowledge"
+  }
+}
+```
+
+**Các định dạng hỗ trợ:**
+
+| Định dạng | Ví dụ |
+|-----------|-------|
+| `owner/repo` | `acme/knowledge-base` |
+| `owner/repo/subdir` | `acme/docs/ai-guides` |
+| URL đầy đủ | `https://github.com/acme/knowledge-base` |
+| URL với branch + path | `https://github.com/acme/docs/tree/main/ai-guides` |
+
+**Repo private** — thêm GitHub personal access token:
+```json
+{
+  "env": {
+    "WEBCAKE_KNOWLEDGE_REPO": "your-org/private-knowledge",
+    "WEBCAKE_KNOWLEDGE_TOKEN": "ghp_xxxxxxxxxxxx"
+  }
+}
+```
+
+Files được cache 5 phút để tránh giới hạn GitHub API.
+
+#### Định dạng file
+
+File hỗ trợ frontmatter (tùy chọn) để đặt tên và mô tả:
+
+```markdown
+---
+name: Quy tắc kinh doanh
+description: Chính sách vận chuyển và đổi trả
+tags: kinh doanh, chính sách
+---
+
+## Chính sách vận chuyển
+- Miễn phí vận chuyển cho đơn trên 500k
+- Giao nhanh: 2-3 ngày làm việc
+...
+```
+
+#### Cách sử dụng
+
+```
+# Liệt kê các file knowledge
+list_knowledge({})
+→ { files: [
+    { file: "quy-tac-kinh-doanh", name: "Quy tắc kinh doanh", description: "Chính sách vận chuyển..." },
+    { file: "quy-chuan-code", name: "Quy chuẩn code", description: "..." }
+  ]}
+
+# Đọc file cụ thể
+get_knowledge({ file: "quy-tac-kinh-doanh" })
+→ { file: "quy-tac-kinh-doanh.md", name: "Quy tắc kinh doanh", content: "## Chính sách vận chuyển\n..." }
+```
+
+AI agent sẽ dùng knowledge này làm ngữ cảnh khi hỗ trợ. Ví dụ: nếu bạn có chính sách vận chuyển, AI sẽ tham chiếu khi viết code liên quan đến đơn hàng.
+
+---
+
 ### Tổng kết tối ưu Token
 
 | Kỹ thuật | Token tiết kiệm | Cách thức |
@@ -1094,6 +1188,12 @@ get_app({ type: "1" })
 |------|-------|
 | `list_apps` | Liệt kê ứng dụng đã cài với settings và trạng thái |
 | `get_app` | Xem chi tiết ứng dụng theo type ID |
+
+### Knowledge tùy chỉnh (2 tools)
+| Tool | Mô tả |
+|------|-------|
+| `list_knowledge` | Liệt kê các file knowledge/hướng dẫn tùy chỉnh |
+| `get_knowledge` | Đọc nội dung file knowledge cụ thể |
 
 ### Khách hàng (1 tool)
 | Tool | Mô tả |

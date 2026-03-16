@@ -12,6 +12,7 @@ import { registerProductTools } from "./tools/products.js";
 import { registerOrderTools } from "./tools/orders.js";
 import { registerSiteStyleTools } from "./tools/site-style.js";
 import { registerAppTools } from "./tools/apps.js";
+import { registerKnowledgeTools } from "./tools/knowledge.js";
 
 const BASE_URL = process.env.WEBCAKE_API_URL;
 const TOKEN = process.env.WEBCAKE_TOKEN;
@@ -48,6 +49,7 @@ registerProductTools(server, api, handle);
 registerOrderTools(server, api, handle);
 registerSiteStyleTools(server, api, handle);
 registerAppTools(server, api, handle);
+registerKnowledgeTools(server, handle);
 
 // Start server
 async function main() {
