@@ -77,7 +77,7 @@ if [ -d ".git" ]; then
     echo "  2) Ghi đè (bỏ thay đổi local)"
     echo "  3) Hủy"
     echo ""
-    read -rp "  Chọn [1]: " CHOICE
+    read -rp "  Chọn [1]: " CHOICE < /dev/tty
     CHOICE="${CHOICE:-1}"
 
     case "$CHOICE" in

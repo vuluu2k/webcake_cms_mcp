@@ -86,7 +86,7 @@ check_node() {
 
   if [ "$NEED_INSTALL" = true ]; then
     echo ""
-    read -rp "  Tự động cài Node.js 20 LTS? (C/k): " INSTALL_NODE
+    read -rp "  Tự động cài Node.js 20 LTS? (C/k): " INSTALL_NODE < /dev/tty
     INSTALL_NODE="${INSTALL_NODE:-C}"
     if [[ "$INSTALL_NODE" =~ ^[CcYy]$ ]]; then
       install_node
@@ -123,13 +123,13 @@ install_mcp() {
   echo ""
   info "Cài MCP server vào đâu?"
   echo -e "  Mặc định: ${BOLD}$DEFAULT_INSTALL_DIR${NC}"
-  read -rp "  Đường dẫn (Enter để dùng mặc định): " INSTALL_DIR
+  read -rp "  Đường dẫn (Enter để dùng mặc định): " INSTALL_DIR < /dev/tty
   INSTALL_DIR="${INSTALL_DIR:-$DEFAULT_INSTALL_DIR}"
   INSTALL_DIR="${INSTALL_DIR/#\~/$HOME}"
 
   if [ -d "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/index.js" ]; then
     success "MCP server đã có tại $INSTALL_DIR"
-    read -rp "  Cập nhật lên bản mới nhất? (c/K): " UPDATE
+    read -rp "  Cập nhật lên bản mới nhất? (c/K): " UPDATE < /dev/tty
     if [[ "$UPDATE" =~ ^[CcYy]$ ]]; then
       info "Đang cập nhật..."
       cd "$INSTALL_DIR"
@@ -181,19 +181,19 @@ collect_env() {
   echo ""
 
   # API URL
-  read -rp "  WEBCAKE_API_URL [https://api.storecake.io]: " API_URL
+  read -rp "  WEBCAKE_API_URL [https://api.storecake.io]: " API_URL < /dev/tty
   API_URL="${API_URL:-https://api.storecake.io}"
 
   # Token
-  read -rp "  WEBCAKE_TOKEN (JWT token, Enter để bỏ qua): " TOKEN
+  read -rp "  WEBCAKE_TOKEN (JWT token, Enter để bỏ qua): " TOKEN < /dev/tty
   TOKEN="${TOKEN:-}"
 
   # Session ID
-  read -rp "  WEBCAKE_SESSION_ID (x-session-id, Enter để bỏ qua): " SESSION_ID
+  read -rp "  WEBCAKE_SESSION_ID (x-session-id, Enter để bỏ qua): " SESSION_ID < /dev/tty
   SESSION_ID="${SESSION_ID:-}"
 
   # Site ID
-  read -rp "  WEBCAKE_SITE_ID (Enter để bỏ qua — chọn sau bằng AI): " SITE_ID
+  read -rp "  WEBCAKE_SITE_ID (Enter để bỏ qua — chọn sau bằng AI): " SITE_ID < /dev/tty
   SITE_ID="${SITE_ID:-}"
 
   echo ""
@@ -410,7 +410,7 @@ select_ides() {
   echo "  7) Tất cả"
   echo "  0) Bỏ qua (cài thủ công sau)"
   echo ""
-  read -rp "  Chọn (phân cách bằng dấu phẩy, vd: 1,2): " IDE_CHOICE
+  read -rp "  Chọn (phân cách bằng dấu phẩy, vd: 1,2): " IDE_CHOICE < /dev/tty
 
   IFS=',' read -ra CHOICES <<< "$IDE_CHOICE"
 
@@ -499,7 +499,7 @@ uninstall() {
   echo ""
 
   if [ -d "$DEFAULT_INSTALL_DIR" ]; then
-    read -rp "  Xóa $DEFAULT_INSTALL_DIR? (c/K): " CONFIRM
+    read -rp "  Xóa $DEFAULT_INSTALL_DIR? (c/K): " CONFIRM < /dev/tty
     if [[ "$CONFIRM" =~ ^[CcYy]$ ]]; then
       rm -rf "$DEFAULT_INSTALL_DIR"
       success "Đã xóa $DEFAULT_INSTALL_DIR"

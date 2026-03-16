@@ -43,7 +43,7 @@ detect_install() {
   else
     echo ""
     warn "MCP server not found at default location."
-    read -rp "  Enter MCP server path: " INSTALL_DIR
+    read -rp "  Enter MCP server path: " INSTALL_DIR < /dev/tty
     INSTALL_DIR="${INSTALL_DIR/#\~/$HOME}"
     if [ ! -f "$INSTALL_DIR/index.js" ]; then
       error "index.js not found at $INSTALL_DIR"
@@ -94,7 +94,7 @@ collect_knowledge_env() {
   DEFAULT_KNOWLEDGE_DIR="$INSTALL_DIR/knowledge"
   echo -e "  ${BOLD}Local knowledge directory${NC}"
   echo -e "  Default: ${BOLD}$DEFAULT_KNOWLEDGE_DIR${NC}"
-  read -rp "  WEBCAKE_KNOWLEDGE_DIR (Enter for default, 'skip' to skip): " INPUT_DIR
+  read -rp "  WEBCAKE_KNOWLEDGE_DIR (Enter for default, 'skip' to skip): " INPUT_DIR < /dev/tty
 
   if [ "$INPUT_DIR" != "skip" ] && [ "$INPUT_DIR" != "s" ]; then
     if [ -n "$INPUT_DIR" ]; then
@@ -105,7 +105,7 @@ collect_knowledge_env() {
 
     # Create directory if it doesn't exist
     if [ ! -d "$KNOWLEDGE_DIR" ]; then
-      read -rp "  Directory doesn't exist. Create it? (Y/n): " CREATE_DIR
+      read -rp "  Directory doesn't exist. Create it? (Y/n): " CREATE_DIR < /dev/tty
       CREATE_DIR="${CREATE_DIR:-Y}"
       if [[ "$CREATE_DIR" =~ ^[Yy]$ ]]; then
         mkdir -p "$KNOWLEDGE_DIR"
@@ -139,7 +139,7 @@ collect_knowledge_env() {
   echo -e "  ${BOLD}GitHub repository (optional)${NC}"
   echo -e "  Formats: owner/repo, owner/repo/docs, or full GitHub URL"
   echo -e "  Example: ${BOLD}mycompany/knowledge-base${NC}"
-  read -rp "  WEBCAKE_KNOWLEDGE_REPO (Enter to skip): " KNOWLEDGE_REPO
+  read -rp "  WEBCAKE_KNOWLEDGE_REPO (Enter to skip): " KNOWLEDGE_REPO < /dev/tty
   KNOWLEDGE_REPO="${KNOWLEDGE_REPO:-}"
 
   # GitHub token (only ask if repo is set)
@@ -148,7 +148,7 @@ collect_knowledge_env() {
     echo -e "  ${BOLD}GitHub token (for private repos)${NC}"
     echo -e "  Public repos don't need a token."
     echo -e "  Create one at: github.com/settings/tokens (scope: repo)"
-    read -rp "  WEBCAKE_KNOWLEDGE_TOKEN (Enter to skip): " KNOWLEDGE_TOKEN
+    read -rp "  WEBCAKE_KNOWLEDGE_TOKEN (Enter to skip): " KNOWLEDGE_TOKEN < /dev/tty
     KNOWLEDGE_TOKEN="${KNOWLEDGE_TOKEN:-}"
   fi
 
@@ -400,7 +400,7 @@ update_ides() {
   fi
 
   echo ""
-  read -rp "  Update all detected IDEs? (Y/n): " UPDATE_ALL
+  read -rp "  Update all detected IDEs? (Y/n): " UPDATE_ALL < /dev/tty
   UPDATE_ALL="${UPDATE_ALL:-Y}"
 
   if [[ ! "$UPDATE_ALL" =~ ^[Yy]$ ]]; then

@@ -79,7 +79,7 @@ if [ -d ".git" ]; then
     echo "  2) Force update (discard local changes)"
     echo "  3) Cancel"
     echo ""
-    read -rp "  Choose [1]: " CHOICE
+    read -rp "  Choose [1]: " CHOICE < /dev/tty
     CHOICE="${CHOICE:-1}"
 
     case "$CHOICE" in

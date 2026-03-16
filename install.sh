@@ -89,7 +89,7 @@ check_node() {
 
   if [ "$NEED_INSTALL" = true ]; then
     echo ""
-    read -rp "  Install Node.js 20 LTS automatically? (Y/n): " INSTALL_NODE
+    read -rp "  Install Node.js 20 LTS automatically? (Y/n): " INSTALL_NODE < /dev/tty
     INSTALL_NODE="${INSTALL_NODE:-Y}"
     if [[ "$INSTALL_NODE" =~ ^[Yy]$ ]]; then
       install_node
@@ -131,7 +131,7 @@ install_mcp() {
   echo ""
   info "Where to install the MCP server?"
   echo -e "  Default: ${BOLD}$DEFAULT_INSTALL_DIR${NC}"
-  read -rp "  Install path (Enter for default): " INSTALL_DIR
+  read -rp "  Install path (Enter for default): " INSTALL_DIR < /dev/tty
   INSTALL_DIR="${INSTALL_DIR:-$DEFAULT_INSTALL_DIR}"
 
   # Expand ~ if user typed it
@@ -139,7 +139,7 @@ install_mcp() {
 
   if [ -d "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/index.js" ]; then
     success "MCP server already exists at $INSTALL_DIR"
-    read -rp "  Update to latest version? (y/N): " UPDATE
+    read -rp "  Update to latest version? (y/N): " UPDATE < /dev/tty
     if [[ "$UPDATE" =~ ^[Yy]$ ]]; then
       info "Updating..."
       cd "$INSTALL_DIR"
@@ -192,19 +192,19 @@ collect_env() {
   echo ""
 
   # API URL
-  read -rp "  WEBCAKE_API_URL [https://api.storecake.io]: " API_URL
+  read -rp "  WEBCAKE_API_URL [https://api.storecake.io]: " API_URL < /dev/tty
   API_URL="${API_URL:-https://api.storecake.io}"
 
   # Token (optional — can set later via update_auth tool)
-  read -rp "  WEBCAKE_TOKEN (JWT token, Enter to skip): " TOKEN
+  read -rp "  WEBCAKE_TOKEN (JWT token, Enter to skip): " TOKEN < /dev/tty
   TOKEN="${TOKEN:-}"
 
   # Session ID
-  read -rp "  WEBCAKE_SESSION_ID (x-session-id, Enter to skip): " SESSION_ID
+  read -rp "  WEBCAKE_SESSION_ID (x-session-id, Enter to skip): " SESSION_ID < /dev/tty
   SESSION_ID="${SESSION_ID:-}"
 
   # Site ID (optional — can set later via switch_site tool)
-  read -rp "  WEBCAKE_SITE_ID (Enter to skip — choose later via AI): " SITE_ID
+  read -rp "  WEBCAKE_SITE_ID (Enter to skip — choose later via AI): " SITE_ID < /dev/tty
   SITE_ID="${SITE_ID:-}"
 
   echo ""
@@ -524,7 +524,7 @@ select_ides() {
   echo "  7) All of the above"
   echo "  0) Skip (manual setup later)"
   echo ""
-  read -rp "  Choose (comma-separated, e.g. 1,2): " IDE_CHOICE
+  read -rp "  Choose (comma-separated, e.g. 1,2): " IDE_CHOICE < /dev/tty
 
   IFS=',' read -ra CHOICES <<< "$IDE_CHOICE"
 
@@ -615,7 +615,7 @@ uninstall() {
 
   # Remove installed directory
   if [ -d "$DEFAULT_INSTALL_DIR" ]; then
-    read -rp "  Remove $DEFAULT_INSTALL_DIR? (y/N): " CONFIRM
+    read -rp "  Remove $DEFAULT_INSTALL_DIR? (y/N): " CONFIRM < /dev/tty
     if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
       rm -rf "$DEFAULT_INSTALL_DIR"
       success "Removed $DEFAULT_INSTALL_DIR"

@@ -42,7 +42,7 @@ detect_install() {
   else
     echo ""
     warn "Không tìm thấy MCP server."
-    read -rp "  Nhập đường dẫn MCP server: " INSTALL_DIR
+    read -rp "  Nhập đường dẫn MCP server: " INSTALL_DIR < /dev/tty
     INSTALL_DIR="${INSTALL_DIR/#\~/$HOME}"
     if [ ! -f "$INSTALL_DIR/index.js" ]; then
       error "Không tìm thấy index.js tại $INSTALL_DIR"
@@ -93,7 +93,7 @@ collect_knowledge_env() {
   DEFAULT_KNOWLEDGE_DIR="$INSTALL_DIR/knowledge"
   echo -e "  ${BOLD}Thư mục knowledge local${NC}"
   echo -e "  Mặc định: ${BOLD}$DEFAULT_KNOWLEDGE_DIR${NC}"
-  read -rp "  WEBCAKE_KNOWLEDGE_DIR (Enter = mặc định, 'bo' để bỏ qua): " INPUT_DIR
+  read -rp "  WEBCAKE_KNOWLEDGE_DIR (Enter = mặc định, 'bo' để bỏ qua): " INPUT_DIR < /dev/tty
 
   if [ "$INPUT_DIR" != "bo" ] && [ "$INPUT_DIR" != "skip" ] && [ "$INPUT_DIR" != "s" ]; then
     if [ -n "$INPUT_DIR" ]; then
@@ -104,7 +104,7 @@ collect_knowledge_env() {
 
     # Tạo thư mục nếu chưa có
     if [ ! -d "$KNOWLEDGE_DIR" ]; then
-      read -rp "  Thư mục chưa tồn tại. Tạo mới? (C/k): " CREATE_DIR
+      read -rp "  Thư mục chưa tồn tại. Tạo mới? (C/k): " CREATE_DIR < /dev/tty
       CREATE_DIR="${CREATE_DIR:-C}"
       if [[ "$CREATE_DIR" =~ ^[CcYy]$ ]]; then
         mkdir -p "$KNOWLEDGE_DIR"
@@ -138,7 +138,7 @@ collect_knowledge_env() {
   echo -e "  ${BOLD}GitHub repository (tuỳ chọn)${NC}"
   echo -e "  Định dạng: owner/repo, owner/repo/docs, hoặc URL GitHub đầy đủ"
   echo -e "  Ví dụ: ${BOLD}mycompany/knowledge-base${NC}"
-  read -rp "  WEBCAKE_KNOWLEDGE_REPO (Enter để bỏ qua): " KNOWLEDGE_REPO
+  read -rp "  WEBCAKE_KNOWLEDGE_REPO (Enter để bỏ qua): " KNOWLEDGE_REPO < /dev/tty
   KNOWLEDGE_REPO="${KNOWLEDGE_REPO:-}"
 
   # GitHub token (chỉ hỏi nếu có repo)
@@ -147,7 +147,7 @@ collect_knowledge_env() {
     echo -e "  ${BOLD}GitHub token (cho repo private)${NC}"
     echo -e "  Repo public không cần token."
     echo -e "  Tạo tại: github.com/settings/tokens (scope: repo)"
-    read -rp "  WEBCAKE_KNOWLEDGE_TOKEN (Enter để bỏ qua): " KNOWLEDGE_TOKEN
+    read -rp "  WEBCAKE_KNOWLEDGE_TOKEN (Enter để bỏ qua): " KNOWLEDGE_TOKEN < /dev/tty
     KNOWLEDGE_TOKEN="${KNOWLEDGE_TOKEN:-}"
   fi
 
@@ -331,7 +331,7 @@ update_ides() {
   fi
 
   echo ""
-  read -rp "  Cập nhật tất cả IDE đã tìm thấy? (C/k): " UPDATE_ALL
+  read -rp "  Cập nhật tất cả IDE đã tìm thấy? (C/k): " UPDATE_ALL < /dev/tty
   UPDATE_ALL="${UPDATE_ALL:-C}"
 
   if [[ ! "$UPDATE_ALL" =~ ^[CcYy]$ ]]; then
