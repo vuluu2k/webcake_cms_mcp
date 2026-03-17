@@ -378,7 +378,7 @@ For full rewrites, use update_site_custom_code instead.`,
           content = content.trimEnd() + "\n\n" + code.trimEnd() + "\n";
         }
 
-        await api.updateSiteSettings({ [field]: content });
+        await api.updateSiteSettings({ [field]: content }, { cachedSettings: s });
         return { success: true, field, position, new_length: content.length };
       })
   );

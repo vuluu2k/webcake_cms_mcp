@@ -26,7 +26,7 @@ export class WebcakeCmsApi {
     return { token: this._adminToken, x_cms_api_key: this._cmsApiKey };
   }
 
-  async request(method, path, { body, query } = {}) {
+  async request(method, path, { body, query, timeout } = {}) {
     const url = new URL(`${this.baseUrl}${path}`);
     if (query) {
       for (const [k, v] of Object.entries(query)) {
@@ -41,7 +41,7 @@ export class WebcakeCmsApi {
     };
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
+    const timer = setTimeout(() => controller.abort(), timeout || DEFAULT_TIMEOUT);
 
     let res;
     try {
@@ -190,11 +190,14 @@ export class WebcakeCmsApi {
     return this.request("GET", `/api/v1/site/${this.siteId}/`);
   }
 
-  async updateSiteSettings(newSettings) {
-    const siteRes = await this.getSite();
-    const currentSettings = (siteRes && siteRes.data && siteRes.data.settings) || {};
+  async updateSiteSettings(newSettings, { cachedSettings } = {}) {
+    let currentSettings = cachedSettings;
+    if (!currentSettings) {
+      const siteRes = await this.getSite();
+      currentSettings = (siteRes && siteRes.data && siteRes.data.settings) || {};
+    }
     const merged = { ...currentSettings, ...newSettings };
-    return this.request("POST", `/api/v1/dashboard/site/${this.siteId}/update_site`, { body: { settings: merged } });
+    return this.request("POST", `/api/v1/dashboard/site/${this.siteId}/update_site`, { body: { settings: merged }, timeout: 30000 });
   }
 
   // ── Collections ──
