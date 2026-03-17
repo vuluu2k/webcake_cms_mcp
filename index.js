@@ -14,7 +14,7 @@ import { registerSiteStyleTools } from "./tools/site-style.js";
 import { registerAppTools } from "./tools/apps.js";
 import { registerPromotionTools } from "./tools/promotions.js";
 import { registerComboTools } from "./tools/combos.js";
-import { registerKnowledgeTools } from "./tools/knowledge.js";
+import { registerKnowledgeTools, autoSync } from "./tools/knowledge.js";
 import { registerContextTools, getSavedConfig } from "./tools/context.js";
 
 // Priority: SQLite (saved by AI tools) > env vars (initial config)
@@ -66,6 +66,8 @@ registerKnowledgeTools(server, handle);
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  // Auto-sync knowledge from GitHub in background (non-blocking)
+  autoSync().catch(() => {});
 }
 
 main().catch((e) => {

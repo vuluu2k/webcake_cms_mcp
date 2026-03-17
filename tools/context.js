@@ -38,7 +38,7 @@ export function registerContextTools(server, api, handle) {
                 name: [me.data.first_name, me.data.last_name].filter(Boolean).join(" ") || null,
               }
             : null,
-          hint: "Use list_my_sites to see all sites, switch_site to change site",
+          hint: "Use list_my_sites to see all sites, switch_site to change site. Use sync_knowledge then list_knowledge to load knowledge base — always check knowledge before answering site-specific questions.",
         };
       })
   );
