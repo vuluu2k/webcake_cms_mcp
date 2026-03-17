@@ -23,16 +23,21 @@ function parseSource(sourceJson) {
   }
 }
 
-/** Walk all nodes in source tree, call fn(node) for each */
+/** Walk all nodes in source tree, call fn(node). Return false from fn to stop early */
 function walkSource(source, fn) {
   if (!source || !source.sections) return;
   function walk(node) {
-    if (!node) return;
-    fn(node);
+    if (!node) return true;
+    if (fn(node) === false) return false;
     const children = node.children || [];
-    for (const child of children) walk(child);
+    for (const child of children) {
+      if (walk(child) === false) return false;
+    }
+    return true;
   }
-  for (const section of source.sections) walk(section);
+  for (const section of source.sections) {
+    if (walk(section) === false) return;
+  }
 }
 
 /** Build overview: section count, element type counts, all custom_classes */
@@ -72,9 +77,9 @@ function nodeToDetail(node) {
   // Data bindings (product, category, blog, etc.)
   if (node.bindings && node.bindings.length) entry.bindings = node.bindings;
 
-  // Responsive breakpoint overrides (keys like "bp_768_1024", etc.)
+  // Responsive breakpoint data (bp1, bp2, bp3, ...)
   for (const key of Object.keys(node)) {
-    if (key.startsWith("bp_") && node[key] && typeof node[key] === "object") {
+    if (/^bp\d+$/.test(key) && node[key] && typeof node[key] === "object") {
       if (!entry.responsive) entry.responsive = {};
       entry.responsive[key] = node[key];
     }
@@ -89,7 +94,7 @@ function nodeToDetail(node) {
 function findNodeById(source, elementId) {
   let found = null;
   walkSource(source, (node) => {
-    if (!found && node.id === elementId) found = node;
+    if (node.id === elementId) { found = node; return false; }
   });
   return found;
 }
@@ -101,10 +106,12 @@ function applyNodeUpdates(node, updates) {
   if (updates.specials) node.specials = { ...(node.specials || {}), ...updates.specials };
   if (updates.events !== undefined) node.events = updates.events;
   if (updates.bindings !== undefined) node.bindings = updates.bindings;
-  // Responsive breakpoints
+  // Responsive breakpoints (bp1, bp2, ...)
   if (updates.responsive) {
     for (const [bp, val] of Object.entries(updates.responsive)) {
-      if (bp.startsWith("bp_")) node[bp] = val;
+      if (/^bp\d+$/.test(bp)) {
+        node[bp] = node[bp] ? { style: { ...node[bp].style, ...val.style }, config: { ...node[bp].config, ...val.config } } : val;
+      }
     }
   }
 }
@@ -115,7 +122,7 @@ function searchElements(source, filters) {
   const limit = filters.limit || 50;
 
   walkSource(source, (node) => {
-    if (results.length >= limit) return;
+    if (results.length >= limit) return false;
 
     // Filter by type
     if (filters.type && node.type !== filters.type) return;
@@ -160,12 +167,39 @@ function searchElements(source, filters) {
   return results;
 }
 
+/** Cache listPages for 30s to avoid repeated API calls within a session */
+let _pagesCache = null;
+let _pagesCacheTime = 0;
+const CACHE_TTL = 30000;
+
+async function getCachedPages(api) {
+  const now = Date.now();
+  if (_pagesCache && now - _pagesCacheTime < CACHE_TTL) return _pagesCache;
+  const res = await api.listPages();
+  _pagesCache = (res && res.data) || res || [];
+  _pagesCacheTime = now;
+  return _pagesCache;
+}
+
+function invalidatePageCache() {
+  _pagesCache = null;
+  _pagesCacheTime = 0;
+}
+
+async function getPageWithSource(api, pageId) {
+  const pages = await getCachedPages(api);
+  if (!Array.isArray(pages)) return { error: "Failed to load pages" };
+  const page = pages.find((p) => p.id === pageId);
+  if (!page) return { error: "Page not found" };
+  const source = parseSource(page.source && page.source.source);
+  return { page, source };
+}
+
 export function registerPageTools(server, api, handle) {
   server.tool("list_pages", "List all pages of the site (metadata only, without source)", {}, () =>
     handle(async () => {
-      const res = await api.listPages();
-      const pages = (res && res.data) || res || [];
-      if (!Array.isArray(pages)) return res;
+      const pages = await getCachedPages(api);
+      if (!Array.isArray(pages)) return pages;
       return pages.map((p) => ({
         id: p.id,
         name: p.name,
@@ -186,12 +220,9 @@ export function registerPageTools(server, api, handle) {
     },
     ({ page_id }) =>
       handle(async () => {
-        const res = await api.listPages();
-        const pages = (res && res.data) || res || [];
-        const page = Array.isArray(pages) ? pages.find((p) => p.id === page_id) : null;
-        if (!page) return { error: "Page not found" };
+        const { page, source, error } = await getPageWithSource(api, page_id);
+        if (error) return { error };
 
-        const source = parseSource(page.source && page.source.source);
         const overview = source ? buildOverview(source) : null;
         return {
           page: { id: page.id, name: page.name, slug: page.slug, type: page.type },
@@ -225,12 +256,8 @@ Examples:
     },
     ({ page_id, ...filters }) =>
       handle(async () => {
-        const res = await api.listPages();
-        const pages = (res && res.data) || res || [];
-        const page = Array.isArray(pages) ? pages.find((p) => p.id === page_id) : null;
-        if (!page) return { error: "Page not found" };
-
-        const source = parseSource(page.source && page.source.source);
+        const { source, error } = await getPageWithSource(api, page_id);
+        if (error) return { error };
         if (!source) return { error: "Page has no source" };
 
         const results = searchElements(source, filters);
@@ -248,7 +275,11 @@ Examples:
       is_homepage: z.boolean().default(false).describe("Set as homepage"),
     },
     ({ name, slug, type, is_homepage }) =>
-      handle(() => api.createPage({ name, slug, type, is_homepage }))
+      handle(async () => {
+        const res = await api.createPage({ name, slug, type, is_homepage });
+        invalidatePageCache();
+        return res;
+      })
   );
 
   server.tool(
@@ -261,7 +292,11 @@ Examples:
       is_homepage: z.boolean().optional().describe("Set as homepage"),
       settings: z.record(z.any()).optional().describe("Page settings"),
     },
-    ({ page_id, ...params }) => handle(() => api.updatePage(page_id, params))
+    ({ page_id, ...params }) => handle(async () => {
+      const res = await api.updatePage(page_id, params);
+      invalidatePageCache();
+      return res;
+    })
   );
 
   server.tool(
@@ -354,7 +389,11 @@ For full rewrites, use update_site_custom_code instead.`,
     {
       page_id: z.string().describe("Page ID to delete"),
     },
-    ({ page_id }) => handle(() => api.deletePage({ page_id }))
+    ({ page_id }) => handle(async () => {
+      const res = await api.deletePage({ page_id });
+      invalidatePageCache();
+      return res;
+    })
   );
 
   server.tool(
@@ -403,19 +442,14 @@ For full rewrites, use update_site_custom_code instead.`,
     },
     ({ page_id, element_id }) =>
       handle(async () => {
-        const res = await api.listPages();
-        const pages = (res && res.data) || res || [];
-        const page = Array.isArray(pages) ? pages.find((p) => p.id === page_id) : null;
-        if (!page) return { error: "Page not found" };
-
-        const source = parseSource(page.source && page.source.source);
+        const { source, error } = await getPageWithSource(api, page_id);
+        if (error) return { error };
         if (!source) return { error: "Page has no source" };
 
         const node = findNodeById(source, element_id);
         if (!node) return { error: `Element "${element_id}" not found` };
 
         const detail = nodeToDetail(node);
-        // Also include children IDs for navigation
         if (node.children && node.children.length) {
           detail.children = node.children.map((c) => ({ id: c.id, type: c.type }));
         }
@@ -431,7 +465,7 @@ For full rewrites, use update_site_custom_code instead.`,
 - specials: shallow merge (update text, custom_class, custom_css individually)
 - events: replaces entire events array
 - bindings: replaces entire bindings array
-- responsive: merge by breakpoint key (e.g. "bp_320_768")`,
+- responsive: merge by breakpoint key (e.g. "bp1", "bp2"). Each bp contains {style, config}`,
     {
       page_id: z.string().describe("Page ID"),
       element_id: z.string().describe("Element ID to update (e.g. 'TEXT-3', 'BUTTON-1')"),
@@ -440,16 +474,12 @@ For full rewrites, use update_site_custom_code instead.`,
       specials: z.record(z.any()).optional().describe("Specials to merge (text, custom_class, custom_css, etc.)"),
       events: z.array(z.record(z.any())).optional().describe("Complete events array (replaces existing)"),
       bindings: z.array(z.record(z.any())).optional().describe("Complete bindings array (replaces existing)"),
-      responsive: z.record(z.any()).optional().describe("Responsive breakpoint overrides (e.g. {bp_320_768: {style: {...}}})"),
+      responsive: z.record(z.any()).optional().describe("Responsive breakpoint overrides (e.g. {bp1: {style: {...}, config: {...}}})"),
     },
     ({ page_id, element_id, ...updates }) =>
       handle(async () => {
-        const res = await api.listPages();
-        const pages = (res && res.data) || res || [];
-        const page = Array.isArray(pages) ? pages.find((p) => p.id === page_id) : null;
-        if (!page) return { error: "Page not found" };
-
-        const source = parseSource(page.source && page.source.source);
+        const { source, error } = await getPageWithSource(api, page_id);
+        if (error) return { error };
         if (!source) return { error: "Page has no source" };
 
         const node = findNodeById(source, element_id);
@@ -457,6 +487,7 @@ For full rewrites, use update_site_custom_code instead.`,
 
         applyNodeUpdates(node, updates);
         await api.updatePageSource(page_id, { source: JSON.stringify(source) });
+        invalidatePageCache();
         return { success: true, element: nodeToDetail(node) };
       })
   );
@@ -479,12 +510,8 @@ Same merge rules as update_page_element: style/config/specials are shallow-merge
     },
     ({ page_id, updates: elementUpdates }) =>
       handle(async () => {
-        const res = await api.listPages();
-        const pages = (res && res.data) || res || [];
-        const page = Array.isArray(pages) ? pages.find((p) => p.id === page_id) : null;
-        if (!page) return { error: "Page not found" };
-
-        const source = parseSource(page.source && page.source.source);
+        const { source, error } = await getPageWithSource(api, page_id);
+        if (error) return { error };
         if (!source) return { error: "Page has no source" };
 
         const results = [];
@@ -500,6 +527,7 @@ Same merge rules as update_page_element: style/config/specials are shallow-merge
         }
 
         await api.updatePageSource(page_id, { source: JSON.stringify(source) });
+        invalidatePageCache();
         return { success: true, updated: results };
       })
   );
