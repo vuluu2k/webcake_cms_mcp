@@ -115,7 +115,9 @@ function extractContent(httpFunc) {
 
 /** Helper to build collection schemas */
 function buildSchemas(collections) {
-  return ((collections?.data) || []).map((c) => ({
+  const raw = collections?.data;
+  const list = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : [];
+  return list.map((c) => ({
     name: c.name,
     table_name: c.table_name,
     fields: (c.schema || []).map((f) => ({
