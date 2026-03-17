@@ -190,14 +190,29 @@ export class WebcakeCmsApi {
     return this.request("GET", `/api/v1/site/${this.siteId}/`);
   }
 
-  async updateSiteSettings(newSettings, { cachedSettings } = {}) {
-    let currentSettings = cachedSettings;
-    if (!currentSettings) {
-      const siteRes = await this.getSite();
-      currentSettings = (siteRes && siteRes.data && siteRes.data.settings) || {};
+  async getSiteSettingField(field) {
+    const siteRes = await this.request("GET", `/api/v1/site/${this.siteId}/`, { timeout: 60000 });
+    const raw = (siteRes && siteRes.data && siteRes.data.settings) || "";
+    if (typeof raw === "object") return raw[field] || "";
+    // Extract field value from JSON string without parsing the entire 88MB+ object
+    const needle = `"${field}":`;
+    const idx = raw.indexOf(needle);
+    if (idx === -1) return "";
+    let vStart = idx + needle.length;
+    while (vStart < raw.length && raw[vStart] === " ") vStart++;
+    if (raw[vStart] !== '"') return "";
+    // Read JSON string value respecting escapes
+    let vEnd = vStart + 1;
+    while (vEnd < raw.length) {
+      if (raw[vEnd] === "\\") { vEnd += 2; continue; }
+      if (raw[vEnd] === '"') { vEnd++; break; }
+      vEnd++;
     }
-    const merged = { ...currentSettings, ...newSettings };
-    return this.request("POST", `/api/v1/dashboard/site/${this.siteId}/update_site`, { body: { settings: merged }, timeout: 30000 });
+    try { return JSON.parse(raw.slice(vStart, vEnd)); } catch { return ""; }
+  }
+
+  async updateSiteSettings(newSettings) {
+    return this.request("POST", `/api/v1/dashboard/site/${this.siteId}/update_site`, { body: { settings: newSettings }, timeout: 60000 });
   }
 
   // ── Collections ──

@@ -313,19 +313,17 @@ Add include_guide=true on first call to get the coding guide`,
     },
     ({ fields, include_guide }) =>
       handle(async () => {
-        const siteRes = await api.getSite();
-        const s = (siteRes && siteRes.data && siteRes.data.settings) || {};
         const allFields = ["code_before_head", "code_before_body", "code_custom_css", "code_custom_javascript"];
         const selected = fields && fields.length ? fields : allFields;
+        const values = await Promise.all(selected.map((f) => api.getSiteSettingField(f)));
         const res = {};
-        for (const f of selected) {
-          res[f] = s[f] || "";
+        for (let i = 0; i < selected.length; i++) {
+          res[selected[i]] = values[i] || "";
         }
         if (!fields || !fields.length) {
-          // Add size hints so AI knows which fields are large
           res._sizes = {};
           for (const f of allFields) {
-            res._sizes[f] = (s[f] || "").length;
+            res._sizes[f] = (res[f] || "").length;
           }
         }
         if (include_guide) res.guide = CUSTOM_CODE_GUIDE;
@@ -368,9 +366,8 @@ For full rewrites, use update_site_custom_code instead.`,
     },
     ({ field, code, position }) =>
       handle(async () => {
-        const siteRes = await api.getSite();
-        const s = (siteRes && siteRes.data && siteRes.data.settings) || {};
-        let content = s[field] || "";
+        const existing = await api.getSiteSettingField(field);
+        let content = existing || "";
 
         if (position === "prepend") {
           content = code.trimEnd() + "\n\n" + content.trimStart();
@@ -378,7 +375,7 @@ For full rewrites, use update_site_custom_code instead.`,
           content = content.trimEnd() + "\n\n" + code.trimEnd() + "\n";
         }
 
-        await api.updateSiteSettings({ [field]: content }, { cachedSettings: s });
+        await api.updateSiteSettings({ [field]: content });
         return { success: true, field, position, new_length: content.length };
       })
   );
