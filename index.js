@@ -17,7 +17,8 @@ import { registerComboTools } from "./tools/combos.js";
 import { registerKnowledgeTools } from "./tools/knowledge.js";
 import { registerContextTools, getSavedConfig } from "./tools/context.js";
 
-// Priority: SQLite (updated by AI) > env vars (initial config)
+// Priority: SQLite (saved by AI tools) > env vars (initial config)
+// SQLite empty → fallback to env vars
 const saved = getSavedConfig();
 const BASE_URL = saved.api_url || process.env.WEBCAKE_API_URL || "";
 const TOKEN = saved.token || process.env.WEBCAKE_TOKEN || "";
