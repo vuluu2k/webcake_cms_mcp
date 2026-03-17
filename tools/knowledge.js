@@ -142,6 +142,42 @@ function getRepoConfig() {
   return parseRepoUrl(url);
 }
 
+// ── GitHub write operations ──
+
+async function ghWrite(method, url, body) {
+  const token = process.env.WEBCAKE_KNOWLEDGE_TOKEN;
+  if (!token) throw new Error("WEBCAKE_KNOWLEDGE_TOKEN is required to write to GitHub");
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: {
+        "User-Agent": "webcake-cms-mcp",
+        Accept: "application/vnd.github.v3+json",
+        Authorization: `token ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(`GitHub API ${res.status}: ${err.message || res.statusText}`);
+    }
+    return res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function buildGhApiUrl(parsed, filePath) {
+  const { owner, repo, path: basePath } = parsed;
+  const full = basePath ? `${basePath}/${filePath}` : filePath;
+  return `https://api.github.com/repos/${owner}/${repo}/contents/${full}`;
+}
+
 export function registerKnowledgeTools(server, handle) {
   server.tool(
     "list_knowledge",
@@ -252,6 +288,118 @@ export function registerKnowledgeTools(server, handle) {
         }
 
         return { error: `File "${file}" not found. Use list_knowledge to see available files.` };
+      })
+  );
+
+  // ── GitHub write tools ──
+
+  server.tool(
+    "create_knowledge",
+    `Create a new knowledge file on GitHub. Use markdown format with optional frontmatter.
+Example content:
+---
+name: Business Rules
+description: Core business logic and rules
+tags: business, rules
+---
+# Business Rules
+...your content...`,
+    {
+      filename: z.string().describe("Filename with extension (e.g. 'business-rules.md', 'api-guide.md')"),
+      content: z.string().describe("File content (markdown with optional frontmatter)"),
+      message: z.string().optional().describe("Git commit message (default: 'Add {filename}')"),
+    },
+    ({ filename, content, message }) =>
+      handle(async () => {
+        const repoCfg = getRepoConfig();
+        if (!repoCfg) throw new Error("WEBCAKE_KNOWLEDGE_REPO is not configured");
+
+        const url = buildGhApiUrl(repoCfg, filename);
+        const res = await ghWrite("PUT", url, {
+          message: message || `Add ${filename}`,
+          content: Buffer.from(content).toString("base64"),
+          ...(repoCfg.branch && { branch: repoCfg.branch }),
+        });
+
+        _ghCache.list = null;
+        _ghCache.listAt = 0;
+
+        return {
+          success: true,
+          file: filename,
+          sha: res.content?.sha,
+          url: res.content?.html_url,
+        };
+      })
+  );
+
+  server.tool(
+    "update_knowledge",
+    "Update an existing knowledge file on GitHub. Fetches current SHA automatically",
+    {
+      filename: z.string().describe("Filename to update (e.g. 'business-rules.md')"),
+      content: z.string().describe("New file content (replaces entire file)"),
+      message: z.string().optional().describe("Git commit message (default: 'Update {filename}')"),
+    },
+    ({ filename, content, message }) =>
+      handle(async () => {
+        const repoCfg = getRepoConfig();
+        if (!repoCfg) throw new Error("WEBCAKE_KNOWLEDGE_REPO is not configured");
+
+        const url = buildGhApiUrl(repoCfg, filename);
+
+        // Get current SHA (required by GitHub API for updates)
+        const existing = await ghFetch(url + (repoCfg.branch ? `?ref=${repoCfg.branch}` : ""));
+        if (!existing?.sha) throw new Error(`File "${filename}" not found on GitHub`);
+
+        const res = await ghWrite("PUT", url, {
+          message: message || `Update ${filename}`,
+          content: Buffer.from(content).toString("base64"),
+          sha: existing.sha,
+          ...(repoCfg.branch && { branch: repoCfg.branch }),
+        });
+
+        _ghCache.list = null;
+        _ghCache.listAt = 0;
+        _ghCache.files.delete(existing.sha);
+
+        return {
+          success: true,
+          file: filename,
+          sha: res.content?.sha,
+          url: res.content?.html_url,
+        };
+      })
+  );
+
+  server.tool(
+    "delete_knowledge",
+    "Delete a knowledge file from GitHub",
+    {
+      filename: z.string().describe("Filename to delete (e.g. 'old-guide.md')"),
+      message: z.string().optional().describe("Git commit message (default: 'Delete {filename}')"),
+    },
+    ({ filename, message }) =>
+      handle(async () => {
+        const repoCfg = getRepoConfig();
+        if (!repoCfg) throw new Error("WEBCAKE_KNOWLEDGE_REPO is not configured");
+
+        const url = buildGhApiUrl(repoCfg, filename);
+
+        const existing = await ghFetch(url + (repoCfg.branch ? `?ref=${repoCfg.branch}` : ""));
+        if (!existing?.sha) throw new Error(`File "${filename}" not found on GitHub`);
+
+        await ghWrite("DELETE", url, {
+          message: message || `Delete ${filename}`,
+          sha: existing.sha,
+          ...(repoCfg.branch && { branch: repoCfg.branch }),
+        });
+
+        _ghCache.list = null;
+        _ghCache.listAt = 0;
+        _ghCache.files.delete(existing.sha);
+
+        return { success: true, deleted: filename };
       })
   );
 }
