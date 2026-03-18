@@ -7,7 +7,9 @@ $ErrorActionPreference = "Stop"
 $DEFAULT_DIR = "$env:USERPROFILE\.webcake-cms-mcp"
 
 Write-Host ""
-Write-Host "  WebCake CMS MCP Server - Updater" -ForegroundColor Cyan
+Write-Host "  ══════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "    WebCake CMS MCP Server - Updater" -ForegroundColor White
+Write-Host "  ══════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 
 # ── Determine install directory ──
@@ -36,16 +38,29 @@ if (-not (Test-Path "$InstallDir\index.js")) {
 
 Write-Host "  [INFO] MCP server found at $InstallDir" -ForegroundColor Blue
 
-# ── Pull latest changes ──
+# ── Save current version info ──
 
 Push-Location $InstallDir
 
+$currentCommit = ""
 if (Test-Path ".git") {
-    $currentCommit = git rev-parse --short HEAD 2>$null
+    $currentCommit = (git rev-parse --short HEAD 2>$null) | Out-String
+    $currentCommit = $currentCommit.Trim()
+    if (-not $currentCommit) { $currentCommit = "unknown" }
     Write-Host "  [INFO] Current version: $currentCommit" -ForegroundColor Blue
+}
+
+# ── Pull latest changes ──
+
+if (Test-Path ".git") {
+    Write-Host "  [INFO] Pulling latest changes..." -ForegroundColor Blue
 
     # Check for local modifications
-    $dirty = git diff --quiet 2>$null; $isDirty = $LASTEXITCODE -ne 0
+    # git diff --quiet exits non-zero when dirty — must not throw
+    $saveEAP = $ErrorActionPreference; $ErrorActionPreference = "SilentlyContinue"
+    git diff --quiet 2>$null
+    $isDirty = $LASTEXITCODE -ne 0
+    $ErrorActionPreference = $saveEAP
 
     if ($isDirty) {
         Write-Host "  [WARN] Local modifications detected" -ForegroundColor Yellow
@@ -79,20 +94,26 @@ if (Test-Path ".git") {
         }
     }
 
-    Write-Host "  [INFO] Pulling latest changes..." -ForegroundColor Blue
+    $saveEAP = $ErrorActionPreference; $ErrorActionPreference = "SilentlyContinue"
     git pull origin main 2>$null
     if ($LASTEXITCODE -ne 0) { git pull 2>$null }
+    $ErrorActionPreference = $saveEAP
 
-    $newCommit = git rev-parse --short HEAD 2>$null
+    $newCommit = (git rev-parse --short HEAD 2>$null) | Out-String
+    $newCommit = $newCommit.Trim()
+    if (-not $newCommit) { $newCommit = "unknown" }
 
     if ($currentCommit -eq $newCommit) {
         Write-Host "  [OK] Already up to date ($newCommit)" -ForegroundColor Green
     } else {
         Write-Host "  [OK] Updated: $currentCommit -> $newCommit" -ForegroundColor Green
-        Write-Host ""
-        Write-Host "  [INFO] Changes:" -ForegroundColor Blue
-        git log --oneline "$currentCommit..$newCommit" 2>$null | Select-Object -First 20 | ForEach-Object {
-            Write-Host "    $_"
+
+        if ($currentCommit -ne "unknown" -and $newCommit -ne "unknown") {
+            Write-Host ""
+            Write-Host "  [INFO] Changes:" -ForegroundColor Blue
+            git log --oneline "$currentCommit..$newCommit" 2>$null | Select-Object -First 20 | ForEach-Object {
+                Write-Host "    $_"
+            }
         }
     }
 } else {
@@ -106,14 +127,20 @@ if (Test-Path ".git") {
 # ── Reinstall dependencies ──
 
 Write-Host "  [INFO] Installing dependencies..." -ForegroundColor Blue
-npm install --production 2>$null
+$saveEAP = $ErrorActionPreference; $ErrorActionPreference = "SilentlyContinue"
+npm install --production 2>$null | Select-Object -Last 1
+$ErrorActionPreference = $saveEAP
 Write-Host "  [OK] Dependencies updated" -ForegroundColor Green
 
 # ── Verify ──
 
 Write-Host "  [INFO] Verifying..." -ForegroundColor Blue
+$saveEAP = $ErrorActionPreference; $ErrorActionPreference = "SilentlyContinue"
 node --check "$InstallDir\index.js" 2>$null
-if ($LASTEXITCODE -eq 0) {
+$checkOk = $LASTEXITCODE -eq 0
+$ErrorActionPreference = $saveEAP
+
+if ($checkOk) {
     Write-Host "  [OK] Syntax OK" -ForegroundColor Green
 } else {
     Write-Host "  [WARN] Syntax check failed" -ForegroundColor Yellow
@@ -124,7 +151,9 @@ Pop-Location
 # ── Done ──
 
 Write-Host ""
-Write-Host "  Update Complete!" -ForegroundColor Green
+Write-Host "  ══════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "    Update Complete!" -ForegroundColor Green
+Write-Host "  ══════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  Restart your IDE to use the new version." -ForegroundColor White
 Write-Host ""
