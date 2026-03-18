@@ -47,9 +47,18 @@ function Install-Mcp {
         if ($update -match '^[Yy]$') {
             Write-Host "  [INFO] Updating..." -ForegroundColor Blue
             Push-Location $dir
-            git pull origin main 2>$null
-            if ($LASTEXITCODE -ne 0) { git pull 2>$null }
-            npm install --production
+            $pullOutput = git pull origin main 2>&1 | Out-String
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "  [WARN] 'git pull origin main' failed, trying 'git pull'..." -ForegroundColor Yellow
+                $pullOutput = git pull 2>&1 | Out-String
+            }
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "  [ERROR] git pull failed:" -ForegroundColor Red
+                Write-Host $pullOutput
+                Pop-Location
+                exit 1
+            }
+            npm install --omit=dev
             Pop-Location
             Write-Host "  [OK] Updated successfully" -ForegroundColor Green
         }
@@ -75,7 +84,7 @@ function Install-Mcp {
 
         Write-Host "  [INFO] Installing dependencies..." -ForegroundColor Blue
         Push-Location $dir
-        npm install --production
+        npm install --omit=dev
         Pop-Location
         Write-Host "  [OK] MCP server installed at $dir" -ForegroundColor Green
     }

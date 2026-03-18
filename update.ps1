@@ -148,9 +148,7 @@ if (Test-Path ".git") {
 # ── Reinstall dependencies ──
 
 Write-Host "  [INFO] Installing dependencies..." -ForegroundColor Blue
-$saveEAP = $ErrorActionPreference; $ErrorActionPreference = "SilentlyContinue"
-npm install --production 2>$null | Select-Object -Last 1
-$ErrorActionPreference = $saveEAP
+npm install --omit=dev 2>&1 | Select-Object -Last 3
 Write-Host "  [OK] Dependencies updated" -ForegroundColor Green
 
 # ── Verify ──
