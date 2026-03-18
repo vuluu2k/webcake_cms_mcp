@@ -54,13 +54,25 @@ function Install-Mcp {
             Write-Host "  [OK] Updated successfully" -ForegroundColor Green
         }
     } else {
-        if (Get-Command git -ErrorAction SilentlyContinue) {
-            Write-Host "  [INFO] Cloning repository..." -ForegroundColor Blue
-            git clone $REPO_URL $dir
-        } else {
+        if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
             Write-Host "  [ERROR] git is required. Install from: https://git-scm.com/" -ForegroundColor Red
             exit 1
         }
+
+        # If directory exists from a previous failed install, clean it up
+        if ((Test-Path $dir) -and -not (Test-Path "$dir\package.json")) {
+            Write-Host "  [WARN] Found incomplete installation at $dir, cleaning up..." -ForegroundColor Yellow
+            Remove-Item -Recurse -Force $dir
+        }
+
+        Write-Host "  [INFO] Cloning repository..." -ForegroundColor Blue
+        git clone $REPO_URL $dir 2>&1 | ForEach-Object { Write-Host "    $_" }
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path "$dir\package.json")) {
+            Write-Host "  [ERROR] git clone failed. Check your network and try again." -ForegroundColor Red
+            Write-Host "  Repo: $REPO_URL" -ForegroundColor Red
+            exit 1
+        }
+
         Write-Host "  [INFO] Installing dependencies..." -ForegroundColor Blue
         Push-Location $dir
         npm install --production
