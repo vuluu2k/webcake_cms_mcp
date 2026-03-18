@@ -475,7 +475,7 @@ For full rewrites, use update_site_custom_code instead.`,
     },
     ({ page_id, element_id, ...updates }) =>
       handle(async () => {
-        const { source, error } = await getPageWithSource(api, page_id);
+        const { page, source, error } = await getPageWithSource(api, page_id);
         if (error) return { error };
         if (!source) return { error: "Page has no source" };
 
@@ -483,9 +483,15 @@ For full rewrites, use update_site_custom_code instead.`,
         if (!node) return { error: `Element "${element_id}" not found` };
 
         applyNodeUpdates(node, updates);
-        await api.updatePageSource(page_id, { source: JSON.stringify(source) });
+        const newSource = JSON.stringify(source);
+        const res = await api.updatePageSource(page_id, { source: newSource });
         invalidatePageCache();
-        return { success: true, element: nodeToDetail(node) };
+
+        // Verify backend persisted the change
+        const saved = res && res.data;
+        if (!saved) return { error: "Backend returned empty response — update may not have persisted", sent_length: newSource.length };
+
+        return { success: true, element: nodeToDetail(node), page_source_id: saved.id };
       })
   );
 
@@ -507,7 +513,7 @@ Same merge rules as update_page_element: style/config/specials are shallow-merge
     },
     ({ page_id, updates: elementUpdates }) =>
       handle(async () => {
-        const { source, error } = await getPageWithSource(api, page_id);
+        const { page, source, error } = await getPageWithSource(api, page_id);
         if (error) return { error };
         if (!source) return { error: "Page has no source" };
 
@@ -523,9 +529,48 @@ Same merge rules as update_page_element: style/config/specials are shallow-merge
           results.push({ element_id, success: true });
         }
 
-        await api.updatePageSource(page_id, { source: JSON.stringify(source) });
+        const newSource = JSON.stringify(source);
+        const res = await api.updatePageSource(page_id, { source: newSource });
         invalidatePageCache();
-        return { success: true, updated: results };
+
+        const saved = res && res.data;
+        if (!saved) return { error: "Backend returned empty response — update may not have persisted", sent_length: newSource.length };
+
+        return { success: true, updated: results, page_source_id: saved.id };
+      })
+  );
+
+  server.tool(
+    "update_page_source",
+    `Directly update the full page source JSON. Use this when you need to replace the entire source or when element-level updates don't persist.
+Sends the source directly to the backend API and returns the saved result for verification.`,
+    {
+      page_id: z.string().describe("Page ID"),
+      source: z.any().describe("Full page source object (sections tree) or JSON string"),
+      custom_code: z.string().optional().describe("Custom code (CSS/JS) for this page"),
+    },
+    ({ page_id, source, custom_code }) =>
+      handle(async () => {
+        const body = {};
+        if (source != null) {
+          body.source = typeof source === "string" ? source : JSON.stringify(source);
+        }
+        if (custom_code != null) {
+          body.custom_code = custom_code;
+        }
+
+        const res = await api.updatePageSource(page_id, body);
+        invalidatePageCache();
+
+        const saved = res && res.data;
+        if (!saved) return { error: "Backend returned empty response — update may not have persisted" };
+
+        return {
+          success: true,
+          page_source_id: saved.id,
+          page_id: saved.page_id,
+          source_length: (saved.source || "").length,
+        };
       })
   );
 
