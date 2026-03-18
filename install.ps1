@@ -47,12 +47,16 @@ function Install-Mcp {
         if ($update -match '^[Yy]$') {
             Write-Host "  [INFO] Updating..." -ForegroundColor Blue
             Push-Location $dir
+            $saveEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
             $pullOutput = git pull origin main 2>&1 | Out-String
-            if ($LASTEXITCODE -ne 0) {
+            $pullExit = $LASTEXITCODE
+            if ($pullExit -ne 0) {
                 Write-Host "  [WARN] 'git pull origin main' failed, trying 'git pull'..." -ForegroundColor Yellow
                 $pullOutput = git pull 2>&1 | Out-String
+                $pullExit = $LASTEXITCODE
             }
-            if ($LASTEXITCODE -ne 0) {
+            $ErrorActionPreference = $saveEAP
+            if ($pullExit -ne 0) {
                 Write-Host "  [ERROR] git pull failed:" -ForegroundColor Red
                 Write-Host $pullOutput
                 Pop-Location
@@ -75,8 +79,11 @@ function Install-Mcp {
         }
 
         Write-Host "  [INFO] Cloning repository..." -ForegroundColor Blue
+        $saveEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
         git clone $REPO_URL $dir 2>&1 | ForEach-Object { Write-Host "    $_" }
-        if ($LASTEXITCODE -ne 0 -or -not (Test-Path "$dir\package.json")) {
+        $cloneExit = $LASTEXITCODE
+        $ErrorActionPreference = $saveEAP
+        if ($cloneExit -ne 0 -or -not (Test-Path "$dir\package.json")) {
             Write-Host "  [ERROR] git clone failed. Check your network and try again." -ForegroundColor Red
             Write-Host "  Repo: $REPO_URL" -ForegroundColor Red
             exit 1
