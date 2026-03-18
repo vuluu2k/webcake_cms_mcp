@@ -94,10 +94,31 @@ if (Test-Path ".git") {
         }
     }
 
-    $saveEAP = $ErrorActionPreference; $ErrorActionPreference = "SilentlyContinue"
-    git pull origin main 2>$null
-    if ($LASTEXITCODE -ne 0) { git pull 2>$null }
-    $ErrorActionPreference = $saveEAP
+    # Fetch first to ensure we have latest remote refs
+    Write-Host "  [INFO] Fetching from remote..." -ForegroundColor Blue
+    $fetchOutput = git fetch origin 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  [ERROR] git fetch failed:" -ForegroundColor Red
+        Write-Host $fetchOutput
+        Pop-Location
+        exit 1
+    }
+
+    # Pull with visible output so errors are not swallowed
+    $pullOutput = git pull origin main 2>&1 | Out-String
+    $pullExitCode = $LASTEXITCODE
+    if ($pullExitCode -ne 0) {
+        Write-Host "  [WARN] 'git pull origin main' failed, trying 'git pull'..." -ForegroundColor Yellow
+        Write-Host $pullOutput
+        $pullOutput = git pull 2>&1 | Out-String
+        $pullExitCode = $LASTEXITCODE
+    }
+    if ($pullExitCode -ne 0) {
+        Write-Host "  [ERROR] git pull failed:" -ForegroundColor Red
+        Write-Host $pullOutput
+        Pop-Location
+        exit 1
+    }
 
     $newCommit = (git rev-parse --short HEAD 2>$null) | Out-String
     $newCommit = $newCommit.Trim()
