@@ -12,6 +12,24 @@ Write-Host "    WebCake CMS MCP Server - Updater" -ForegroundColor White
 Write-Host "  ══════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 
+# ── Run git without PowerShell stderr interference ──
+# PowerShell 5.x wraps native stderr in ErrorRecord objects that throw
+# even with ErrorActionPreference=Continue when piped. Start-Process avoids this.
+
+function Invoke-Git {
+    param([string[]]$GitArgs, [string]$WorkDir)
+    $pArgs = @{
+        FilePath     = "git"
+        ArgumentList = $GitArgs
+        NoNewWindow  = $true
+        Wait         = $true
+        PassThru     = $true
+    }
+    if ($WorkDir) { $pArgs.WorkingDirectory = $WorkDir }
+    $proc = Start-Process @pArgs
+    return $proc.ExitCode
+}
+
 # ── Determine install directory ──
 
 $InstallDir = if ($args.Count -gt 0) { $args[0] } else { "" }
@@ -44,9 +62,10 @@ Push-Location $InstallDir
 
 $currentCommit = ""
 if (Test-Path ".git") {
+    $saveEAP = $ErrorActionPreference; $ErrorActionPreference = "SilentlyContinue"
     $currentCommit = (git rev-parse --short HEAD 2>$null) | Out-String
-    $currentCommit = $currentCommit.Trim()
-    if (-not $currentCommit) { $currentCommit = "unknown" }
+    $ErrorActionPreference = $saveEAP
+    $currentCommit = if ($currentCommit) { $currentCommit.Trim() } else { "unknown" }
     Write-Host "  [INFO] Current version: $currentCommit" -ForegroundColor Blue
 }
 
@@ -56,7 +75,6 @@ if (Test-Path ".git") {
     Write-Host "  [INFO] Pulling latest changes..." -ForegroundColor Blue
 
     # Check for local modifications
-    # git diff --quiet exits non-zero when dirty — must not throw
     $saveEAP = $ErrorActionPreference; $ErrorActionPreference = "SilentlyContinue"
     git diff --quiet 2>$null
     $isDirty = $LASTEXITCODE -ne 0
@@ -74,11 +92,11 @@ if (Test-Path ".git") {
 
         switch ($choice) {
             "1" {
-                git stash
+                Invoke-Git -GitArgs "stash" -WorkDir $InstallDir
                 Write-Host "  [OK] Changes stashed (restore with: git stash pop)" -ForegroundColor Green
             }
             "2" {
-                git checkout .
+                Invoke-Git -GitArgs "checkout","." -WorkDir $InstallDir
                 Write-Host "  [OK] Local changes discarded" -ForegroundColor Green
             }
             "3" {
@@ -94,35 +112,30 @@ if (Test-Path ".git") {
         }
     }
 
-    # Fetch first to ensure we have latest remote refs
+    # Fetch and pull using Start-Process to avoid PS5 stderr issues
     Write-Host "  [INFO] Fetching from remote..." -ForegroundColor Blue
-    $fetchOutput = git fetch origin 2>&1 | Out-String
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "  [ERROR] git fetch failed:" -ForegroundColor Red
-        Write-Host $fetchOutput
+    $exitCode = Invoke-Git -GitArgs "fetch","origin" -WorkDir $InstallDir
+    if ($exitCode -ne 0) {
+        Write-Host "  [ERROR] git fetch failed. Check your network connection." -ForegroundColor Red
         Pop-Location
         exit 1
     }
 
-    # Pull with visible output so errors are not swallowed
-    $pullOutput = git pull origin main 2>&1 | Out-String
-    $pullExitCode = $LASTEXITCODE
-    if ($pullExitCode -ne 0) {
+    $exitCode = Invoke-Git -GitArgs "pull","origin","main" -WorkDir $InstallDir
+    if ($exitCode -ne 0) {
         Write-Host "  [WARN] 'git pull origin main' failed, trying 'git pull'..." -ForegroundColor Yellow
-        Write-Host $pullOutput
-        $pullOutput = git pull 2>&1 | Out-String
-        $pullExitCode = $LASTEXITCODE
+        $exitCode = Invoke-Git -GitArgs "pull" -WorkDir $InstallDir
     }
-    if ($pullExitCode -ne 0) {
-        Write-Host "  [ERROR] git pull failed:" -ForegroundColor Red
-        Write-Host $pullOutput
+    if ($exitCode -ne 0) {
+        Write-Host "  [ERROR] git pull failed. Check your network connection." -ForegroundColor Red
         Pop-Location
         exit 1
     }
 
+    $saveEAP = $ErrorActionPreference; $ErrorActionPreference = "SilentlyContinue"
     $newCommit = (git rev-parse --short HEAD 2>$null) | Out-String
-    $newCommit = $newCommit.Trim()
-    if (-not $newCommit) { $newCommit = "unknown" }
+    $ErrorActionPreference = $saveEAP
+    $newCommit = if ($newCommit) { $newCommit.Trim() } else { "unknown" }
 
     if ($currentCommit -eq $newCommit) {
         Write-Host "  [OK] Already up to date ($newCommit)" -ForegroundColor Green
@@ -132,9 +145,11 @@ if (Test-Path ".git") {
         if ($currentCommit -ne "unknown" -and $newCommit -ne "unknown") {
             Write-Host ""
             Write-Host "  [INFO] Changes:" -ForegroundColor Blue
+            $saveEAP = $ErrorActionPreference; $ErrorActionPreference = "SilentlyContinue"
             git log --oneline "$currentCommit..$newCommit" 2>$null | Select-Object -First 20 | ForEach-Object {
                 Write-Host "    $_"
             }
+            $ErrorActionPreference = $saveEAP
         }
     }
 } else {

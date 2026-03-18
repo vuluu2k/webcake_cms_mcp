@@ -33,6 +33,24 @@ function Check-Node {
     Write-Host "  [OK] Node.js $(node -v) at $script:NodeBin" -ForegroundColor Green
 }
 
+# ── Run git without PowerShell stderr interference ──
+# PowerShell 5.x wraps native stderr in ErrorRecord objects that throw
+# even with ErrorActionPreference=Continue when piped. Start-Process avoids this.
+
+function Invoke-Git {
+    param([string[]]$GitArgs, [string]$WorkDir)
+    $pArgs = @{
+        FilePath     = "git"
+        ArgumentList = $GitArgs
+        NoNewWindow  = $true
+        Wait         = $true
+        PassThru     = $true
+    }
+    if ($WorkDir) { $pArgs.WorkingDirectory = $WorkDir }
+    $proc = Start-Process @pArgs
+    return $proc.ExitCode
+}
+
 # ── Install MCP server ──
 
 function Install-Mcp {
@@ -46,22 +64,16 @@ function Install-Mcp {
         $update = Read-Host "  Update to latest version? (y/N)"
         if ($update -match '^[Yy]$') {
             Write-Host "  [INFO] Updating..." -ForegroundColor Blue
-            Push-Location $dir
-            $saveEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
-            $pullOutput = git pull origin main 2>&1 | Out-String
-            $pullExit = $LASTEXITCODE
-            if ($pullExit -ne 0) {
+            $exitCode = Invoke-Git -GitArgs "pull","origin","main" -WorkDir $dir
+            if ($exitCode -ne 0) {
                 Write-Host "  [WARN] 'git pull origin main' failed, trying 'git pull'..." -ForegroundColor Yellow
-                $pullOutput = git pull 2>&1 | Out-String
-                $pullExit = $LASTEXITCODE
+                $exitCode = Invoke-Git -GitArgs "pull" -WorkDir $dir
             }
-            $ErrorActionPreference = $saveEAP
-            if ($pullExit -ne 0) {
-                Write-Host "  [ERROR] git pull failed:" -ForegroundColor Red
-                Write-Host $pullOutput
-                Pop-Location
+            if ($exitCode -ne 0) {
+                Write-Host "  [ERROR] git pull failed. Check your network connection." -ForegroundColor Red
                 exit 1
             }
+            Push-Location $dir
             npm install --omit=dev
             Pop-Location
             Write-Host "  [OK] Updated successfully" -ForegroundColor Green
@@ -79,11 +91,8 @@ function Install-Mcp {
         }
 
         Write-Host "  [INFO] Cloning repository..." -ForegroundColor Blue
-        $saveEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
-        git clone $REPO_URL $dir 2>&1 | ForEach-Object { Write-Host "    $_" }
-        $cloneExit = $LASTEXITCODE
-        $ErrorActionPreference = $saveEAP
-        if ($cloneExit -ne 0 -or -not (Test-Path "$dir\package.json")) {
+        $exitCode = Invoke-Git -GitArgs "clone",$REPO_URL,$dir
+        if ($exitCode -ne 0 -or -not (Test-Path "$dir\package.json")) {
             Write-Host "  [ERROR] git clone failed. Check your network and try again." -ForegroundColor Red
             Write-Host "  Repo: $REPO_URL" -ForegroundColor Red
             exit 1
