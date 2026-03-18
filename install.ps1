@@ -78,24 +78,42 @@ function Collect-Env {
     Write-Host "  -- Environment Configuration --" -ForegroundColor White
     Write-Host ""
 
+    Write-Host "  How to get token & session_id:" -ForegroundColor Yellow
+    Write-Host "    1. Login to WebCake/StoreCake dashboard"
+    Write-Host "    2. Open DevTools (F12) > Network tab"
+    Write-Host "    3. Click any page, find an API request"
+    Write-Host "    4. Copy 'Authorization: Bearer ...' header value -> token"
+    Write-Host "    5. Copy 'x-session-id' header value -> session_id"
+    Write-Host ""
+
     $script:ApiUrl = Read-Host "  WEBCAKE_API_URL [https://api.storecake.io]"
     if (-not $script:ApiUrl) { $script:ApiUrl = "https://api.storecake.io" }
 
-    do {
-        $script:Token = Read-Host "  WEBCAKE_TOKEN (JWT token)"
-        if (-not $script:Token) { Write-Host "  [WARN] Token is required." -ForegroundColor Yellow }
-    } while (-not $script:Token)
-
-    do {
-        $script:SiteId = Read-Host "  WEBCAKE_SITE_ID"
-        if (-not $script:SiteId) { Write-Host "  [WARN] Site ID is required." -ForegroundColor Yellow }
-    } while (-not $script:SiteId)
+    $script:Token = Read-Host "  WEBCAKE_TOKEN (JWT token, Enter to skip)"
+    $script:SessionId = Read-Host "  WEBCAKE_SESSION_ID (x-session-id, Enter to skip)"
+    $script:SiteId = Read-Host "  WEBCAKE_SITE_ID (Enter to skip - choose later via AI)"
 
     Write-Host ""
     Write-Host "  [OK] Configuration:" -ForegroundColor Green
-    Write-Host "  API URL : $script:ApiUrl"
-    Write-Host "  Token   : $($script:Token.Substring(0, [Math]::Min(20, $script:Token.Length)))..."
-    Write-Host "  Site ID : $script:SiteId"
+    Write-Host "  API URL    : $script:ApiUrl"
+    
+    if ($script:Token) {
+        Write-Host "  Token      : $($script:Token.Substring(0, [Math]::Min(20, $script:Token.Length)))..."
+    } else {
+        Write-Host "  Token      : (not set - use update_auth tool later)" -ForegroundColor Yellow
+    }
+    
+    if ($script:SessionId) {
+        Write-Host "  Session ID : $($script:SessionId.Substring(0, [Math]::Min(12, $script:SessionId.Length)))..."
+    } else {
+        Write-Host "  Session ID : (not set - use update_auth tool later)" -ForegroundColor Yellow
+    }
+    
+    if ($script:SiteId) {
+        Write-Host "  Site ID    : $script:SiteId"
+    } else {
+        Write-Host "  Site ID    : (not set - use switch_site tool later)" -ForegroundColor Yellow
+    }
 }
 
 # ── Helper: write MCP config JSON ──
@@ -110,6 +128,7 @@ function Get-McpConfig {
       "env": {
         "WEBCAKE_API_URL": "$script:ApiUrl",
         "WEBCAKE_TOKEN": "$script:Token",
+        "WEBCAKE_SESSION_ID": "$script:SessionId",
         "WEBCAKE_SITE_ID": "$script:SiteId"
       }
     }
@@ -125,6 +144,7 @@ function Merge-McpConfig($configPath) {
         env = @{
             WEBCAKE_API_URL = $script:ApiUrl
             WEBCAKE_TOKEN = $script:Token
+            WEBCAKE_SESSION_ID = $script:SessionId
             WEBCAKE_SITE_ID = $script:SiteId
         }
     }
@@ -159,6 +179,7 @@ function Configure-ClaudeCode {
         claude mcp add webcake-cms `
             -e WEBCAKE_API_URL="$script:ApiUrl" `
             -e WEBCAKE_TOKEN="$script:Token" `
+            -e WEBCAKE_SESSION_ID="$script:SessionId" `
             -e WEBCAKE_SITE_ID="$script:SiteId" `
             -- "$script:NodeBin" "$script:McpIndex"
         Write-Host "  [OK] Claude Code configured (via CLI)" -ForegroundColor Green
@@ -204,7 +225,7 @@ function Configure-Codex {
 [mcp_servers.webcake-cms]
 command = "$($script:NodeBin -replace '\\', '/')"
 args = ["$($script:McpIndex -replace '\\', '/')"]
-env = { "WEBCAKE_API_URL" = "$script:ApiUrl", "WEBCAKE_TOKEN" = "$script:Token", "WEBCAKE_SITE_ID" = "$script:SiteId" }
+env = { "WEBCAKE_API_URL" = "$script:ApiUrl", "WEBCAKE_TOKEN" = "$script:Token", "WEBCAKE_SESSION_ID" = "$script:SessionId", "WEBCAKE_SITE_ID" = "$script:SiteId" }
 "@
 
     if ((Test-Path $configPath) -and (Get-Item $configPath).Length -gt 0) {
@@ -262,6 +283,67 @@ function Select-Ides {
     }
 }
 
+# ── Verify installation ──
+
+function Verify-Installation {
+    Write-Host ""
+    Write-Host "  [INFO] Verifying installation..." -ForegroundColor Blue
+    try {
+        node --check "$script:McpIndex" 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  [OK] MCP server syntax OK" -ForegroundColor Green
+        } else {
+            Write-Host "  [WARN] Could not verify module" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  [WARN] Could not verify module" -ForegroundColor Yellow
+    }
+}
+
+# ── Print summary ──
+
+function Print-Summary {
+    Write-Host ""
+    Write-Host "  ═══════════════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host "    Installation Complete!" -ForegroundColor Green
+    Write-Host "  ═══════════════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  Node.js    : $script:NodeBin"
+    Write-Host "  MCP Server : $script:McpIndex"
+    Write-Host "  API URL    : $script:ApiUrl"
+    if ($script:SiteId) {
+        Write-Host "  Site ID    : $script:SiteId"
+    }
+    Write-Host ""
+    Write-Host "  Next steps:"
+    Write-Host "  1. Restart your IDE"
+    Write-Host "  2. Start a conversation and use CMS tools"
+
+    if (-not $script:Token -or -not $script:SessionId) {
+        Write-Host ""
+        Write-Host "  Credentials not fully set. In your first chat, ask the AI:" -ForegroundColor Yellow
+        Write-Host "    `"Update auth with token=... session_id=...`""
+        Write-Host "    (get from browser DevTools > Network > any API request headers)"
+    }
+
+    if (-not $script:SiteId) {
+        Write-Host ""
+        Write-Host "  Site not set. In your first chat, ask the AI:" -ForegroundColor Yellow
+        Write-Host "    `"List my sites`" then `"Switch to site <name>`""
+    }
+
+    Write-Host ""
+    Write-Host "  Test (Claude Code):"
+    Write-Host "    claude mcp list"
+    Write-Host ""
+    Write-Host "  Manual run:"
+    Write-Host "    `$env:WEBCAKE_API_URL=`"$script:ApiUrl`""
+    Write-Host "    `$env:WEBCAKE_TOKEN=`"<token>`""
+    Write-Host "    `$env:WEBCAKE_SESSION_ID=`"<session_id>`""
+    Write-Host "    & `"$script:NodeBin`" `"$script:McpIndex`""
+    Write-Host ""
+}
+
 # ── Uninstall ──
 
 function Uninstall {
@@ -292,16 +374,9 @@ if ($args -contains "--uninstall" -or $args -contains "uninstall") {
     Uninstall
     exit 0
 }
-
 Check-Node
 Install-Mcp
 Collect-Env
 Select-Ides
-
-Write-Host ""
-Write-Host "  Installation Complete!" -ForegroundColor Green
-Write-Host ""
-Write-Host "  Next steps:"
-Write-Host "  1. Restart your IDE"
-Write-Host "  2. Start a conversation and use CMS tools"
-Write-Host ""
+Verify-Installation
+Print-Summary
