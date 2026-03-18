@@ -349,6 +349,44 @@ export class WebcakeCmsApi {
     return this.request("GET", `/api/v1/cms_function/${this.siteId}/customer/email/${email}`);
   }
 
+  // ── Global Sources (cart, popup, overview, etc.) ──
+
+  getSourceCart() {
+    return this.request("GET", `/api/v1/site/${this.siteId}/cart/get_source_cart`);
+  }
+
+  createSourceCart(params) {
+    return this.request("POST", `/api/v1/site/${this.siteId}/cart/create_source_cart`, { body: params });
+  }
+
+  updateSourceCart(params) {
+    return this.request("POST", `/api/v1/site/${this.siteId}/cart/update_source_cart`, { body: params });
+  }
+
+  getGlobalSources(query) {
+    return this.request("GET", `/api/v1/site/${this.siteId}/global_source/`, { query });
+  }
+
+  createGlobalSource(params) {
+    return this.request("POST", `/api/v1/site/${this.siteId}/global_source/create`, { body: params });
+  }
+
+  updateGlobalSource(params) {
+    return this.request("POST", `/api/v1/site/${this.siteId}/global_source/update`, { body: params });
+  }
+
+  deleteGlobalSource(params) {
+    return this.request("POST", `/api/v1/site/${this.siteId}/global_source/delete`, { body: params });
+  }
+
+  getGlobalSourceContents(query) {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/multilingual/global_source_contents`, { query });
+  }
+
+  updateGlobalSourceContents(params) {
+    return this.request("POST", `/api/v1/dashboard/site/${this.siteId}/multilingual/update_global_source_contents`, { body: params });
+  }
+
   // ── Automation ──
 
   sendMail(params) {

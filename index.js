@@ -16,6 +16,7 @@ import { registerPromotionTools } from "./tools/promotions.js";
 import { registerComboTools } from "./tools/combos.js";
 import { registerKnowledgeTools, autoSync } from "./tools/knowledge.js";
 import { registerContextTools, getSavedConfig } from "./tools/context.js";
+import { registerGlobalSourceTools } from "./tools/global-sources.js";
 
 // Priority: SQLite (saved by AI tools) > env vars (initial config)
 // SQLite empty → fallback to env vars
@@ -49,6 +50,7 @@ How to handle common questions:
 - "Thêm hàm API" / "Add backend function" → get_http_function (overview), then edit_http_function
 - "Trang X có element gì?" → get_page_source, then search_page_elements
 - "Sửa element" → get_page_element, then update_page_element
+- "Cart/Popup/Overview" → list_global_sources or get_source_cart, then get_global_source_detail
 - "Khuyến mãi" / "Promotions" → list_promotions or get_active_promotions
 - Questions about business rules, guides → list_knowledge, then get_knowledge
 
@@ -87,6 +89,7 @@ registerAppTools(server, api, handle);
 registerPromotionTools(server, api, handle);
 registerComboTools(server, api, handle);
 registerKnowledgeTools(server, handle);
+registerGlobalSourceTools(server, api, handle);
 
 // Start server
 async function main() {
