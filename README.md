@@ -27,6 +27,7 @@ curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/instal
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/install.sh | bash -s -- \
   --token YOUR_TOKEN \
+  --session-id YOUR_SESSION_ID \
   --site-id YOUR_SITE_ID
 ```
 
@@ -35,6 +36,7 @@ curl -fsSL https://raw.githubusercontent.com/vuluu2k/webcake_cms_mcp/main/instal
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--token TOKEN` | JWT Bearer token | *(required)* |
+| `--session-id ID` | Session ID (`x-session-id`) | *(optional)* |
 | `--site-id ID` | Target site ID | *(required)* |
 | `--api-url URL` | API base URL | `https://api.storecake.io` |
 | `--ide IDE` | IDE to configure: `claude-desktop`, `claude`, `cursor`, `windsurf`, `augment`, `codex`, `all` | `all` |
@@ -145,24 +147,30 @@ npm install
 
 ## Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `WEBCAKE_API_URL` | WebCake API base URL (e.g. `https://api.storecake.io`) |
-| `WEBCAKE_TOKEN` | JWT Bearer token (dashboard auth) |
-| `WEBCAKE_SITE_ID` | Target site ID |
-| `WEBCAKE_KNOWLEDGE_DIR` | *(Optional)* Path to local knowledge files directory (default: `./knowledge`) |
-| `WEBCAKE_KNOWLEDGE_REPO` | *(Optional)* GitHub repo for knowledge files (e.g. `owner/repo` or full URL) |
-| `WEBCAKE_KNOWLEDGE_TOKEN` | *(Optional)* GitHub token for private repos |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `WEBCAKE_API_URL` | Yes | WebCake API base URL (e.g. `https://api.storecake.io`) |
+| `WEBCAKE_TOKEN` | No* | JWT Bearer token (dashboard auth) |
+| `WEBCAKE_SESSION_ID` | No* | Session ID (`x-session-id` header) |
+| `WEBCAKE_SITE_ID` | No* | Target site ID |
+| `WEBCAKE_KNOWLEDGE_DIR` | No | Path to local knowledge files directory (default: `./knowledge`) |
+| `WEBCAKE_KNOWLEDGE_REPO` | No | GitHub repo for knowledge files (e.g. `owner/repo` or full URL) |
+| `WEBCAKE_KNOWLEDGE_TOKEN` | No | GitHub token for private repos |
+
+> \* Token, session_id, site_id can be set later via `update_auth` and `switch_site` tools in chat. When set via tools, values are **saved to SQLite** (`webcake-mcp.db`) and auto-restored in the next session.
 
 > CMS admin token and CMS API key are automatically fetched via API when needed (no manual config required).
 
-### How to get `WEBCAKE_TOKEN` and `WEBCAKE_SITE_ID`
+### How to get `WEBCAKE_TOKEN` and `WEBCAKE_SESSION_ID`
 
 1. Open [WebCake Dashboard](https://storecake.io) and log in
 2. Open DevTools (`F12` or `Cmd + Option + I`)
-3. Go to **Application** tab > **Cookies** > `https://storecake.io`
-4. Find the cookie named `token` — copy its value → this is your `WEBCAKE_TOKEN`
-5. `WEBCAKE_SITE_ID` is in the dashboard URL: `https://storecake.io/site/{site_id}/...`
+3. Go to **Network** tab > click any page
+4. Find an API request (e.g. `@me`, `site/all`...)
+5. In **Request Headers**:
+   - `Authorization: Bearer ...` → copy the value after "Bearer " → this is your `WEBCAKE_TOKEN`
+   - `x-session-id: ...` → copy the value → this is your `WEBCAKE_SESSION_ID`
+6. `WEBCAKE_SITE_ID` is in the dashboard URL: `https://storecake.io/site/{site_id}/...` or use the `list_my_sites` tool to list all sites
 
 ---
 
@@ -188,6 +196,7 @@ Open Settings > Developer > Edit Config, or edit the file directly:
       "env": {
         "WEBCAKE_API_URL": "https://api.storecake.io",
         "WEBCAKE_TOKEN": "<your-token>",
+        "WEBCAKE_SESSION_ID": "<your-session-id>",
         "WEBCAKE_SITE_ID": "<your-site-id>"
       }
     }
@@ -207,6 +216,7 @@ Run in terminal:
 claude mcp add webcake-cms \
   -e WEBCAKE_API_URL=https://api.storecake.io \
   -e WEBCAKE_TOKEN=<your-token> \
+  -e WEBCAKE_SESSION_ID=<your-session-id> \
   -e WEBCAKE_SITE_ID=<your-site-id> \
   -- node /absolute-path/webcake_cms_mcp/index.js
 ```
@@ -222,6 +232,7 @@ Or create `.claude.json` at project root:
       "env": {
         "WEBCAKE_API_URL": "https://api.storecake.io",
         "WEBCAKE_TOKEN": "<your-token>",
+        "WEBCAKE_SESSION_ID": "<your-session-id>",
         "WEBCAKE_SITE_ID": "<your-site-id>",
       }
     }
@@ -251,6 +262,7 @@ Create `.cursor/mcp.json` at project root:
       "env": {
         "WEBCAKE_API_URL": "https://api.storecake.io",
         "WEBCAKE_TOKEN": "<your-token>",
+        "WEBCAKE_SESSION_ID": "<your-session-id>",
         "WEBCAKE_SITE_ID": "<your-site-id>",
       }
     }
@@ -275,6 +287,7 @@ Create `~/.codeium/windsurf/mcp_config.json`:
       "env": {
         "WEBCAKE_API_URL": "https://api.storecake.io",
         "WEBCAKE_TOKEN": "<your-token>",
+        "WEBCAKE_SESSION_ID": "<your-session-id>",
         "WEBCAKE_SITE_ID": "<your-site-id>",
       }
     }
@@ -299,6 +312,7 @@ Open Command Palette: `Cmd + Shift + P` > **"Augment: Edit MCP Settings"**, then
       "env": {
         "WEBCAKE_API_URL": "https://api.storecake.io",
         "WEBCAKE_TOKEN": "<your-token>",
+        "WEBCAKE_SESSION_ID": "<your-session-id>",
         "WEBCAKE_SITE_ID": "<your-site-id>",
       }
     }
@@ -318,7 +332,7 @@ Add to `~/.codex/config.toml`:
 [mcp_servers.webcake-cms]
 command = "node"
 args = ["/absolute-path/webcake_cms_mcp/index.js"]
-env = { "WEBCAKE_API_URL" = "https://api.storecake.io", "WEBCAKE_TOKEN" = "<your-token>", "WEBCAKE_SITE_ID" = "<your-site-id>" }
+env = { "WEBCAKE_API_URL" = "https://api.storecake.io", "WEBCAKE_TOKEN" = "<your-token>", "WEBCAKE_SESSION_ID" = "<your-session-id>", "WEBCAKE_SITE_ID" = "<your-site-id>" }
 ```
 
 Or via CLI:
@@ -326,6 +340,7 @@ Or via CLI:
 codex mcp add webcake-cms \
   --env WEBCAKE_API_URL=https://api.storecake.io \
   --env WEBCAKE_TOKEN=<your-token> \
+  --env WEBCAKE_SESSION_ID=<your-session-id> \
   --env WEBCAKE_SITE_ID=<your-site-id> \
   -- node /absolute-path/webcake_cms_mcp/index.js
 ```
