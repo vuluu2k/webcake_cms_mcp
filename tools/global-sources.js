@@ -94,6 +94,46 @@ function findNodeById(source, elementId) {
   return found;
 }
 
+/** Deep-diff two nodes — returns only changed fields with before/after.
+ *  Objects (style, config, specials) are diffed at key-level.
+ *  Arrays (events, bindings) show full before/after.
+ *  Responsive breakpoints diffed individually.
+ */
+function computeNodeDiff(beforeNode, afterNode) {
+  const diff = {};
+  const objFields = ["style", "config", "specials"];
+  const arrFields = ["events", "bindings"];
+
+  for (const field of objFields) {
+    const b = beforeNode[field] || {};
+    const a = afterNode[field] || {};
+    if (JSON.stringify(b) === JSON.stringify(a)) continue;
+    const fieldDiff = {};
+    for (const k of new Set([...Object.keys(b), ...Object.keys(a)])) {
+      if (JSON.stringify(b[k]) !== JSON.stringify(a[k])) {
+        fieldDiff[k] = { before: b[k] ?? null, after: a[k] ?? null };
+      }
+    }
+    if (Object.keys(fieldDiff).length) diff[field] = fieldDiff;
+  }
+
+  for (const field of arrFields) {
+    if (JSON.stringify(beforeNode[field] || null) !== JSON.stringify(afterNode[field] || null)) {
+      diff[field] = { before: beforeNode[field] || null, after: afterNode[field] || null };
+    }
+  }
+
+  for (const key of new Set([...Object.keys(beforeNode), ...Object.keys(afterNode)])) {
+    if (!/^bp\d+$/.test(key)) continue;
+    if (JSON.stringify(beforeNode[key] || null) !== JSON.stringify(afterNode[key] || null)) {
+      if (!diff.responsive) diff.responsive = {};
+      diff.responsive[key] = { before: beforeNode[key] || null, after: afterNode[key] || null };
+    }
+  }
+
+  return Object.keys(diff).length ? diff : null;
+}
+
 function applyNodeUpdates(node, updates) {
   if (updates.style) node.style = { ...(node.style || {}), ...updates.style };
   if (updates.config) node.config = { ...(node.config || {}), ...updates.config };
@@ -414,17 +454,15 @@ Examples:
 
   server.tool(
     "update_global_source_element",
-    `Update a single element within a global source. Finds by ID, merges, saves back.
-- style: shallow merge (only send changed CSS props)
-- config: shallow merge
-- specials: shallow merge (text, custom_class, custom_css individually)
-- events: replaces entire array
-- bindings: replaces entire array
-- responsive: merge by breakpoint key (bp1, bp2)`,
+    `Update a single element within a global source. Finds by ID, computes diff, optionally saves.
+- dry_run=true (default): preview changes only — shows diff, does NOT save. Always preview first and show user.
+- dry_run=false: apply changes and save to backend.
+Merge rules: style/config/specials = shallow merge, events/bindings = replace array, responsive = merge by bp key.`,
     {
       global_source_id: z.string().describe("Global source ID"),
       element_id: z.string().describe("Element ID to update (e.g. 'TEXT-3', 'BUTTON-1')"),
       component: z.string().optional().describe('Component hint for faster lookup'),
+      dry_run: z.boolean().default(true).describe("Preview only (true, default) or apply changes (false). Always preview first."),
       style: z.record(z.any()).optional().describe("CSS style properties to merge"),
       config: z.record(z.any()).optional().describe("Config properties to merge"),
       specials: z.record(z.any()).optional().describe("Specials to merge (text, custom_class, custom_css)"),
@@ -432,8 +470,10 @@ Examples:
       bindings: z.array(z.record(z.any())).optional().describe("Complete bindings array (replaces existing)"),
       responsive: z.record(z.any()).optional().describe("Responsive overrides (e.g. {bp1: {style: {...}}})"),
     },
-    ({ global_source_id, element_id, component, ...updates }) =>
+    ({ global_source_id, element_id, component, dry_run, ...updates }) =>
       handle(async () => {
+        // Force fresh read before write to avoid stale cache overwriting newer data
+        invalidateGsCache();
         const { gs, source, error } = await getGsWithSource(api, global_source_id, component);
         if (error) return { error };
         if (!source) return { error: "Global source has no source data" };
@@ -441,33 +481,67 @@ Examples:
         const node = findNodeById(source, element_id);
         if (!node) return { error: `Element "${element_id}" not found` };
 
+        // Clone node before mutation for diff
+        const beforeNode = JSON.parse(JSON.stringify(node));
         applyNodeUpdates(node, updates);
+        const diff = computeNodeDiff(beforeNode, node);
+
+        if (!diff) return { info: "No changes detected", element_id };
+
+        // Dry run: return diff without saving
+        if (dry_run) {
+          return {
+            dry_run: true,
+            element_id,
+            diff,
+            hint: "Review the changes above. Call again with dry_run=false to apply.",
+          };
+        }
+
+        // Actual save
+        const existingStr = JSON.stringify(parseSource(gs.source));
         const newSource = JSON.stringify(source);
 
-        // Route to correct API based on component type
+        // Safeguard: block if source shrinks significantly
+        if (existingStr.length > 200 && newSource.length < existingStr.length * 0.5) {
+          return {
+            error: `BLOCKED: Source would shrink from ${existingStr.length} to ${newSource.length} chars. This indicates data loss.`,
+            existing_length: existingStr.length,
+            new_length: newSource.length,
+          };
+        }
+
         const isCart = gs.component === "cart-droppable";
+        let res;
         if (isCart) {
-          await api.updateSourceCart({ source: newSource, type: gs.type, site_id: api.siteId });
+          res = await api.updateSourceCart({ source: newSource, type: gs.type, site_id: api.siteId });
         } else {
-          await api.updateGlobalSource({ global_source_id, source: newSource, type: gs.component, site_id: api.siteId });
+          res = await api.updateGlobalSource({ global_source_id, source: newSource, type: gs.component, site_id: api.siteId });
         }
         invalidateGsCache();
 
-        return { success: true, element: nodeToDetail(node) };
+        const saved = res && res.data;
+        if (!saved) return { error: "Backend returned empty response — update may not have persisted", sent_length: newSource.length };
+
+        return { success: true, element_id, diff, source_length: newSource.length };
       })
   );
 
   server.tool(
     "update_global_source_elements",
     `Batch update multiple elements in one global source.
-Same merge rules as update_global_source_element: style/config/specials are shallow-merged, events/bindings are replaced.`,
+- dry_run=true (default): preview all changes — shows per-element diff, does NOT save.
+- dry_run=false: apply all changes and save.
+Same merge rules: style/config/specials = shallow merge, events/bindings = replace.`,
     {
       global_source_id: z.string().describe("Global source ID"),
       component: z.string().optional().describe('Component hint for faster lookup'),
+      dry_run: z.boolean().default(true).describe("Preview only (true, default) or apply changes (false). Always preview first."),
       updates: z.array(elementUpdateShape).describe("Array of element updates"),
     },
-    ({ global_source_id, component, updates: elementUpdates }) =>
+    ({ global_source_id, component, dry_run, updates: elementUpdates }) =>
       handle(async () => {
+        invalidateGsCache();
         const { gs, source, error } = await getGsWithSource(api, global_source_id, component);
         if (error) return { error };
         if (!source) return { error: "Global source has no source data" };
@@ -479,21 +553,46 @@ Same merge rules as update_global_source_element: style/config/specials are shal
             results.push({ element_id: upd.element_id, error: "Not found" });
             continue;
           }
+          const beforeNode = JSON.parse(JSON.stringify(node));
           const { element_id, ...updates } = upd;
           applyNodeUpdates(node, updates);
-          results.push({ element_id, success: true });
+          const diff = computeNodeDiff(beforeNode, node);
+          results.push({ element_id, diff: diff || "no changes" });
         }
 
+        if (dry_run) {
+          return {
+            dry_run: true,
+            elements: results,
+            hint: "Review the changes above. Call again with dry_run=false to apply.",
+          };
+        }
+
+        // Actual save
+        const existingStr = JSON.stringify(parseSource(gs.source));
         const newSource = JSON.stringify(source);
+
+        if (existingStr.length > 200 && newSource.length < existingStr.length * 0.5) {
+          return {
+            error: `BLOCKED: Source would shrink from ${existingStr.length} to ${newSource.length} chars. This indicates data loss.`,
+            existing_length: existingStr.length,
+            new_length: newSource.length,
+          };
+        }
+
         const isCart = gs.component === "cart-droppable";
+        let res;
         if (isCart) {
-          await api.updateSourceCart({ source: newSource, type: gs.type, site_id: api.siteId });
+          res = await api.updateSourceCart({ source: newSource, type: gs.type, site_id: api.siteId });
         } else {
-          await api.updateGlobalSource({ global_source_id, source: newSource, type: gs.component, site_id: api.siteId });
+          res = await api.updateGlobalSource({ global_source_id, source: newSource, type: gs.component, site_id: api.siteId });
         }
         invalidateGsCache();
 
-        return { success: true, updated: results };
+        const saved = res && res.data;
+        if (!saved) return { error: "Backend returned empty response — update may not have persisted", sent_length: newSource.length };
+
+        return { success: true, elements: results, source_length: newSource.length };
       })
   );
 
@@ -528,6 +627,8 @@ For element-level changes, prefer update_global_source_element instead.`,
     },
     ({ global_source_id, source: newSourceInput }) =>
       handle(async () => {
+        // Force fresh read before write to avoid stale cache
+        invalidateGsCache();
         const { gs, source: existingSource, error } = await getGsWithSource(api, global_source_id);
         if (error) return { error };
 

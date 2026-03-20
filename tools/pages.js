@@ -99,6 +99,42 @@ function findNodeById(source, elementId) {
   return found;
 }
 
+/** Deep-diff two nodes — returns only changed fields with before/after */
+function computeNodeDiff(beforeNode, afterNode) {
+  const diff = {};
+  const objFields = ["style", "config", "specials"];
+  const arrFields = ["events", "bindings"];
+
+  for (const field of objFields) {
+    const b = beforeNode[field] || {};
+    const a = afterNode[field] || {};
+    if (JSON.stringify(b) === JSON.stringify(a)) continue;
+    const fieldDiff = {};
+    for (const k of new Set([...Object.keys(b), ...Object.keys(a)])) {
+      if (JSON.stringify(b[k]) !== JSON.stringify(a[k])) {
+        fieldDiff[k] = { before: b[k] ?? null, after: a[k] ?? null };
+      }
+    }
+    if (Object.keys(fieldDiff).length) diff[field] = fieldDiff;
+  }
+
+  for (const field of arrFields) {
+    if (JSON.stringify(beforeNode[field] || null) !== JSON.stringify(afterNode[field] || null)) {
+      diff[field] = { before: beforeNode[field] || null, after: afterNode[field] || null };
+    }
+  }
+
+  for (const key of new Set([...Object.keys(beforeNode), ...Object.keys(afterNode)])) {
+    if (!/^bp\d+$/.test(key)) continue;
+    if (JSON.stringify(beforeNode[key] || null) !== JSON.stringify(afterNode[key] || null)) {
+      if (!diff.responsive) diff.responsive = {};
+      diff.responsive[key] = { before: beforeNode[key] || null, after: afterNode[key] || null };
+    }
+  }
+
+  return Object.keys(diff).length ? diff : null;
+}
+
 /** Apply updates to a node in-place (shallow merge for objects, replace for arrays) */
 function applyNodeUpdates(node, updates) {
   if (updates.style) node.style = { ...(node.style || {}), ...updates.style };
@@ -501,16 +537,14 @@ For full rewrites, use update_site_custom_code instead.`,
 
   server.tool(
     "update_page_element",
-    `Update properties of a specific element in page source. Finds the element by ID, merges updates, saves back.
-- style: shallow merge with existing (only send changed CSS properties)
-- config: shallow merge with existing
-- specials: shallow merge (update text, custom_class, custom_css individually)
-- events: replaces entire events array
-- bindings: replaces entire bindings array
-- responsive: merge by breakpoint key (e.g. "bp1", "bp2"). Each bp contains {style, config}`,
+    `Update properties of a specific element in page source. Finds by ID, computes diff, optionally saves.
+- dry_run=true (default): preview changes only — shows diff, does NOT save. Always preview first and show user.
+- dry_run=false: apply changes and save to backend.
+Merge rules: style/config/specials = shallow merge, events/bindings = replace array, responsive = merge by bp key.`,
     {
       page_id: z.string().describe("Page ID"),
       element_id: z.string().describe("Element ID to update (e.g. 'TEXT-3', 'BUTTON-1')"),
+      dry_run: z.boolean().default(true).describe("Preview only (true, default) or apply changes (false). Always preview first."),
       style: z.record(z.any()).optional().describe("CSS style properties to merge (e.g. {color: '#fff', 'font-size': '16px'})"),
       config: z.record(z.any()).optional().describe("Config properties to merge"),
       specials: z.record(z.any()).optional().describe("Specials to merge (text, custom_class, custom_css, etc.)"),
@@ -518,8 +552,9 @@ For full rewrites, use update_site_custom_code instead.`,
       bindings: z.array(z.record(z.any())).optional().describe("Complete bindings array (replaces existing)"),
       responsive: z.record(z.any()).optional().describe("Responsive breakpoint overrides (e.g. {bp1: {style: {...}, config: {...}}})"),
     },
-    ({ page_id, element_id, ...updates }) =>
+    ({ page_id, element_id, dry_run, ...updates }) =>
       handle(async () => {
+        invalidatePageCache();
         const { page, source, error } = await getPageWithSource(api, page_id);
         if (error) return { error };
         if (!source) return { error: "Page has no source" };
@@ -527,25 +562,52 @@ For full rewrites, use update_site_custom_code instead.`,
         const node = findNodeById(source, element_id);
         if (!node) return { error: `Element "${element_id}" not found` };
 
+        const beforeNode = JSON.parse(JSON.stringify(node));
         applyNodeUpdates(node, updates);
+        const diff = computeNodeDiff(beforeNode, node);
+
+        if (!diff) return { info: "No changes detected", element_id };
+
+        if (dry_run) {
+          return {
+            dry_run: true,
+            element_id,
+            diff,
+            hint: "Review the changes above. Call again with dry_run=false to apply.",
+          };
+        }
+
+        // Actual save
         const newSource = JSON.stringify(source);
+        const existingStr = JSON.stringify(parseSource(page.source && page.source.source));
+
+        if (existingStr.length > 200 && newSource.length < existingStr.length * 0.5) {
+          return {
+            error: `BLOCKED: Page source would shrink from ${existingStr.length} to ${newSource.length} chars. This indicates data loss.`,
+            existing_length: existingStr.length,
+            new_length: newSource.length,
+          };
+        }
+
         const res = await api.updatePageSource(page_id, { source: newSource });
         invalidatePageCache();
 
-        // Verify backend persisted the change
         const saved = res && res.data;
         if (!saved) return { error: "Backend returned empty response — update may not have persisted", sent_length: newSource.length };
 
-        return { success: true, element: nodeToDetail(node), page_source_id: saved.id };
+        return { success: true, element_id, diff, page_source_id: saved.id, source_length: newSource.length };
       })
   );
 
   server.tool(
     "update_page_elements",
-    `Batch update multiple elements in one page. Each update specifies element_id and properties to change.
-Same merge rules as update_page_element: style/config/specials are shallow-merged, events/bindings are replaced`,
+    `Batch update multiple elements in one page.
+- dry_run=true (default): preview all changes — shows per-element diff, does NOT save.
+- dry_run=false: apply all changes and save.
+Same merge rules: style/config/specials = shallow merge, events/bindings = replace.`,
     {
       page_id: z.string().describe("Page ID"),
+      dry_run: z.boolean().default(true).describe("Preview only (true, default) or apply changes (false). Always preview first."),
       updates: z.array(z.object({
         element_id: z.string().describe("Element ID"),
         style: z.record(z.any()).optional(),
@@ -556,8 +618,9 @@ Same merge rules as update_page_element: style/config/specials are shallow-merge
         responsive: z.record(z.any()).optional(),
       })).describe("Array of element updates"),
     },
-    ({ page_id, updates: elementUpdates }) =>
+    ({ page_id, dry_run, updates: elementUpdates }) =>
       handle(async () => {
+        invalidatePageCache();
         const { page, source, error } = await getPageWithSource(api, page_id);
         if (error) return { error };
         if (!source) return { error: "Page has no source" };
@@ -569,19 +632,40 @@ Same merge rules as update_page_element: style/config/specials are shallow-merge
             results.push({ element_id: upd.element_id, error: "Not found" });
             continue;
           }
+          const beforeNode = JSON.parse(JSON.stringify(node));
           const { element_id, ...updates } = upd;
           applyNodeUpdates(node, updates);
-          results.push({ element_id, success: true });
+          const diff = computeNodeDiff(beforeNode, node);
+          results.push({ element_id, diff: diff || "no changes" });
         }
 
+        if (dry_run) {
+          return {
+            dry_run: true,
+            elements: results,
+            hint: "Review the changes above. Call again with dry_run=false to apply.",
+          };
+        }
+
+        // Actual save
         const newSource = JSON.stringify(source);
+        const existingStr = JSON.stringify(parseSource(page.source && page.source.source));
+
+        if (existingStr.length > 200 && newSource.length < existingStr.length * 0.5) {
+          return {
+            error: `BLOCKED: Page source would shrink from ${existingStr.length} to ${newSource.length} chars. This indicates data loss.`,
+            existing_length: existingStr.length,
+            new_length: newSource.length,
+          };
+        }
+
         const res = await api.updatePageSource(page_id, { source: newSource });
         invalidatePageCache();
 
         const saved = res && res.data;
         if (!saved) return { error: "Backend returned empty response — update may not have persisted", sent_length: newSource.length };
 
-        return { success: true, updated: results, page_source_id: saved.id };
+        return { success: true, elements: results, page_source_id: saved.id, source_length: newSource.length };
       })
   );
 
@@ -604,8 +688,9 @@ Sends the source directly to the backend API and returns the saved result for ve
           body.custom_code = custom_code;
         }
 
-        // Safeguard: read existing source and block if new source is suspiciously smaller
+        // Safeguard: force fresh read and block if new source is suspiciously smaller
         if (body.source) {
+          invalidatePageCache();
           const { source: existingSource, error } = await getPageWithSource(api, page_id);
           if (!error && existingSource) {
             const existingStr = JSON.stringify(existingSource);
