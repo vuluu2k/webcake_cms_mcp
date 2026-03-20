@@ -577,25 +577,25 @@ Merge rules: style/config/specials = shallow merge, events/bindings = replace ar
           };
         }
 
-        // Actual save
-        const newSource = JSON.stringify(source);
-        const existingStr = JSON.stringify(parseSource(page.source && page.source.source));
+        // Actual save — send source as OBJECT (not string) because backend does Jason.encode!
+        const newLen = JSON.stringify(source).length;
+        const existingLen = JSON.stringify(parseSource(page.source && page.source.source)).length;
 
-        if (existingStr.length > 200 && newSource.length < existingStr.length * 0.5) {
+        if (existingLen > 200 && newLen < existingLen * 0.5) {
           return {
-            error: `BLOCKED: Page source would shrink from ${existingStr.length} to ${newSource.length} chars. This indicates data loss.`,
-            existing_length: existingStr.length,
-            new_length: newSource.length,
+            error: `BLOCKED: Page source would shrink from ${existingLen} to ${newLen} chars. This indicates data loss.`,
+            existing_length: existingLen,
+            new_length: newLen,
           };
         }
 
-        const res = await api.updatePageSource(page_id, { source: newSource });
+        const res = await api.updatePageSource(page_id, { source });
         invalidatePageCache();
 
         const saved = res && res.data;
-        if (!saved) return { error: "Backend returned empty response — update may not have persisted", sent_length: newSource.length };
+        if (!saved) return { error: "Backend returned empty response — update may not have persisted", sent_length: newLen };
 
-        return { success: true, element_id, diff, page_source_id: saved.id, source_length: newSource.length };
+        return { success: true, element_id, diff, page_source_id: saved.id, source_length: newLen };
       })
   );
 
@@ -647,25 +647,25 @@ Same merge rules: style/config/specials = shallow merge, events/bindings = repla
           };
         }
 
-        // Actual save
-        const newSource = JSON.stringify(source);
-        const existingStr = JSON.stringify(parseSource(page.source && page.source.source));
+        // Actual save — send source as OBJECT (not string) because backend does Jason.encode!
+        const newLen = JSON.stringify(source).length;
+        const existingLen = JSON.stringify(parseSource(page.source && page.source.source)).length;
 
-        if (existingStr.length > 200 && newSource.length < existingStr.length * 0.5) {
+        if (existingLen > 200 && newLen < existingLen * 0.5) {
           return {
-            error: `BLOCKED: Page source would shrink from ${existingStr.length} to ${newSource.length} chars. This indicates data loss.`,
-            existing_length: existingStr.length,
-            new_length: newSource.length,
+            error: `BLOCKED: Page source would shrink from ${existingLen} to ${newLen} chars. This indicates data loss.`,
+            existing_length: existingLen,
+            new_length: newLen,
           };
         }
 
-        const res = await api.updatePageSource(page_id, { source: newSource });
+        const res = await api.updatePageSource(page_id, { source });
         invalidatePageCache();
 
         const saved = res && res.data;
-        if (!saved) return { error: "Backend returned empty response — update may not have persisted", sent_length: newSource.length };
+        if (!saved) return { error: "Backend returned empty response — update may not have persisted", sent_length: newLen };
 
-        return { success: true, elements: results, page_source_id: saved.id, source_length: newSource.length };
+        return { success: true, elements: results, page_source_id: saved.id, source_length: newLen };
       })
   );
 
@@ -682,7 +682,8 @@ Sends the source directly to the backend API and returns the saved result for ve
       handle(async () => {
         const body = {};
         if (source != null) {
-          body.source = typeof source === "string" ? source : JSON.stringify(source);
+          // Ensure source is an object — backend does Jason.encode! so we must send object, not string
+          body.source = typeof source === "string" ? JSON.parse(source) : source;
         }
         if (custom_code != null) {
           body.custom_code = custom_code;
@@ -693,12 +694,13 @@ Sends the source directly to the backend API and returns the saved result for ve
           invalidatePageCache();
           const { source: existingSource, error } = await getPageWithSource(api, page_id);
           if (!error && existingSource) {
-            const existingStr = JSON.stringify(existingSource);
-            if (existingStr.length > 200 && body.source.length < existingStr.length * 0.5) {
+            const existingLen = JSON.stringify(existingSource).length;
+            const newLen = JSON.stringify(body.source).length;
+            if (existingLen > 200 && newLen < existingLen * 0.5) {
               return {
-                error: `BLOCKED: New source (${body.source.length} chars) is much smaller than existing (${existingStr.length} chars) — ${Math.round((body.source.length / existingStr.length) * 100)}% of original. This may indicate fabricated data or data loss. Read the page source with get_page_source/get_page_element first, then apply changes.`,
-                existing_length: existingStr.length,
-                new_length: body.source.length,
+                error: `BLOCKED: New source (${newLen} chars) is much smaller than existing (${existingLen} chars) — ${Math.round((newLen / existingLen) * 100)}% of original. This may indicate fabricated data or data loss. Read the page source with get_page_source/get_page_element first, then apply changes.`,
+                existing_length: existingLen,
+                new_length: newLen,
               };
             }
           }

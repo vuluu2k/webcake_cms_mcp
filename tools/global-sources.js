@@ -498,32 +498,32 @@ Merge rules: style/config/specials = shallow merge, events/bindings = replace ar
           };
         }
 
-        // Actual save
-        const existingStr = JSON.stringify(parseSource(gs.source));
-        const newSource = JSON.stringify(source);
+        // Actual save — send source as OBJECT (not string) because backend does Jason.encode!
+        const existingLen = JSON.stringify(parseSource(gs.source)).length;
+        const newLen = JSON.stringify(source).length;
 
         // Safeguard: block if source shrinks significantly
-        if (existingStr.length > 200 && newSource.length < existingStr.length * 0.5) {
+        if (existingLen > 200 && newLen < existingLen * 0.5) {
           return {
-            error: `BLOCKED: Source would shrink from ${existingStr.length} to ${newSource.length} chars. This indicates data loss.`,
-            existing_length: existingStr.length,
-            new_length: newSource.length,
+            error: `BLOCKED: Source would shrink from ${existingLen} to ${newLen} chars. This indicates data loss.`,
+            existing_length: existingLen,
+            new_length: newLen,
           };
         }
 
         const isCart = gs.component === "cart-droppable";
         let res;
         if (isCart) {
-          res = await api.updateSourceCart({ source: newSource, type: gs.type, site_id: api.siteId });
+          res = await api.updateSourceCart({ source, type: gs.type, site_id: api.siteId });
         } else {
-          res = await api.updateGlobalSource({ global_source_id, source: newSource, type: gs.component, site_id: api.siteId });
+          res = await api.updateGlobalSource({ global_source_id, source, type: gs.component, site_id: api.siteId });
         }
         invalidateGsCache();
 
         const saved = res && res.data;
-        if (!saved) return { error: "Backend returned empty response — update may not have persisted", sent_length: newSource.length };
+        if (!saved) return { error: "Backend returned empty response — update may not have persisted", sent_length: newLen };
 
-        return { success: true, element_id, diff, source_length: newSource.length };
+        return { success: true, element_id, diff, source_length: newLen };
       })
   );
 
@@ -568,31 +568,31 @@ Same merge rules: style/config/specials = shallow merge, events/bindings = repla
           };
         }
 
-        // Actual save
-        const existingStr = JSON.stringify(parseSource(gs.source));
-        const newSource = JSON.stringify(source);
+        // Actual save — send source as OBJECT (not string) because backend does Jason.encode!
+        const existingLen = JSON.stringify(parseSource(gs.source)).length;
+        const newLen = JSON.stringify(source).length;
 
-        if (existingStr.length > 200 && newSource.length < existingStr.length * 0.5) {
+        if (existingLen > 200 && newLen < existingLen * 0.5) {
           return {
-            error: `BLOCKED: Source would shrink from ${existingStr.length} to ${newSource.length} chars. This indicates data loss.`,
-            existing_length: existingStr.length,
-            new_length: newSource.length,
+            error: `BLOCKED: Source would shrink from ${existingLen} to ${newLen} chars. This indicates data loss.`,
+            existing_length: existingLen,
+            new_length: newLen,
           };
         }
 
         const isCart = gs.component === "cart-droppable";
         let res;
         if (isCart) {
-          res = await api.updateSourceCart({ source: newSource, type: gs.type, site_id: api.siteId });
+          res = await api.updateSourceCart({ source, type: gs.type, site_id: api.siteId });
         } else {
-          res = await api.updateGlobalSource({ global_source_id, source: newSource, type: gs.component, site_id: api.siteId });
+          res = await api.updateGlobalSource({ global_source_id, source, type: gs.component, site_id: api.siteId });
         }
         invalidateGsCache();
 
         const saved = res && res.data;
-        if (!saved) return { error: "Backend returned empty response — update may not have persisted", sent_length: newSource.length };
+        if (!saved) return { error: "Backend returned empty response — update may not have persisted", sent_length: newLen };
 
-        return { success: true, elements: results, source_length: newSource.length };
+        return { success: true, elements: results, source_length: newLen };
       })
   );
 
@@ -632,29 +632,31 @@ For element-level changes, prefer update_global_source_element instead.`,
         const { gs, source: existingSource, error } = await getGsWithSource(api, global_source_id);
         if (error) return { error };
 
-        const newSourceStr = typeof newSourceInput === "string" ? newSourceInput : JSON.stringify(newSourceInput);
+        // Ensure source is an object (not string) — backend does Jason.encode! so we must send object
+        const newSourceObj = typeof newSourceInput === "string" ? JSON.parse(newSourceInput) : newSourceInput;
+        const newLen = JSON.stringify(newSourceObj).length;
 
         // Safeguard: block if new source is suspiciously smaller
         if (existingSource) {
-          const existingStr = JSON.stringify(existingSource);
-          if (existingStr.length > 200 && newSourceStr.length < existingStr.length * 0.5) {
+          const existingLen = JSON.stringify(existingSource).length;
+          if (existingLen > 200 && newLen < existingLen * 0.5) {
             return {
-              error: `BLOCKED: New source (${newSourceStr.length} chars) is much smaller than existing (${existingStr.length} chars) — ${Math.round((newSourceStr.length / existingStr.length) * 100)}% of original. Use get_global_source_detail to read existing data first, or use update_global_source_element for targeted changes.`,
-              existing_length: existingStr.length,
-              new_length: newSourceStr.length,
+              error: `BLOCKED: New source (${newLen} chars) is much smaller than existing (${existingLen} chars) — ${Math.round((newLen / existingLen) * 100)}% of original. Use get_global_source_detail to read existing data first, or use update_global_source_element for targeted changes.`,
+              existing_length: existingLen,
+              new_length: newLen,
             };
           }
         }
 
         const isCart = gs.component === "cart-droppable";
         if (isCart) {
-          await api.updateSourceCart({ source: newSourceStr, type: gs.type, site_id: api.siteId });
+          await api.updateSourceCart({ source: newSourceObj, type: gs.type, site_id: api.siteId });
         } else {
-          await api.updateGlobalSource({ global_source_id, source: newSourceStr, type: gs.component, site_id: api.siteId });
+          await api.updateGlobalSource({ global_source_id, source: newSourceObj, type: gs.component, site_id: api.siteId });
         }
         invalidateGsCache();
 
-        return { success: true, global_source_id, new_length: newSourceStr.length };
+        return { success: true, global_source_id, new_length: newLen };
       })
   );
 
