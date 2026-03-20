@@ -186,16 +186,24 @@ function Merge-McpConfig($configPath) {
         }
     }
 
+    # Ensure parent directory exists
+    $parentDir = Split-Path $configPath -Parent
+    if (-not (Test-Path $parentDir)) { New-Item -ItemType Directory -Path $parentDir -Force | Out-Null }
+
     if ((Test-Path $configPath) -and (Get-Item $configPath).Length -gt 0) {
-        $config = Get-Content $configPath -Raw | ConvertFrom-Json
-        if (-not $config.mcpServers) {
-            $config | Add-Member -NotePropertyName mcpServers -NotePropertyValue @{}
+        try {
+            $config = Get-Content $configPath -Raw | ConvertFrom-Json
+            if (-not $config.mcpServers) {
+                $config | Add-Member -NotePropertyName mcpServers -NotePropertyValue ([PSCustomObject]@{})
+            }
+            $config.mcpServers | Add-Member -NotePropertyName "webcake-cms" -NotePropertyValue $mcpEntry -Force
+            $config | ConvertTo-Json -Depth 10 | Set-Content $configPath -Encoding UTF8
+        } catch {
+            Write-Host "  [WARN] Could not merge existing config: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "  [INFO] Writing fresh config..." -ForegroundColor Blue
+            Get-McpConfig | Set-Content $configPath -Encoding UTF8
         }
-        $config.mcpServers | Add-Member -NotePropertyName "webcake-cms" -NotePropertyValue $mcpEntry -Force
-        $config | ConvertTo-Json -Depth 10 | Set-Content $configPath -Encoding UTF8
     } else {
-        $parentDir = Split-Path $configPath -Parent
-        if (-not (Test-Path $parentDir)) { New-Item -ItemType Directory -Path $parentDir -Force | Out-Null }
         Get-McpConfig | Set-Content $configPath -Encoding UTF8
     }
 }
