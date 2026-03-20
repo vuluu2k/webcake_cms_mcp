@@ -153,6 +153,13 @@ function Collect-Env {
     }
 }
 
+# ── Helper: write UTF-8 without BOM (PS 5.x writes BOM by default, which breaks JSON.parse) ──
+
+function Write-Utf8NoBom($path, $content) {
+    $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+    [System.IO.File]::WriteAllText($path, $content, $utf8NoBom)
+}
+
 # ── Helper: write MCP config JSON ──
 
 function Get-McpConfig {
@@ -197,14 +204,15 @@ function Merge-McpConfig($configPath) {
                 $config | Add-Member -NotePropertyName mcpServers -NotePropertyValue ([PSCustomObject]@{})
             }
             $config.mcpServers | Add-Member -NotePropertyName "webcake-cms" -NotePropertyValue $mcpEntry -Force
-            $config | ConvertTo-Json -Depth 10 | Set-Content $configPath -Encoding UTF8
+            $jsonOut = $config | ConvertTo-Json -Depth 10
+            Write-Utf8NoBom $configPath $jsonOut
         } catch {
             Write-Host "  [WARN] Could not merge existing config: $($_.Exception.Message)" -ForegroundColor Yellow
             Write-Host "  [INFO] Writing fresh config..." -ForegroundColor Blue
-            Get-McpConfig | Set-Content $configPath -Encoding UTF8
+            Write-Utf8NoBom $configPath (Get-McpConfig)
         }
     } else {
-        Get-McpConfig | Set-Content $configPath -Encoding UTF8
+        Write-Utf8NoBom $configPath (Get-McpConfig)
     }
 }
 
@@ -304,9 +312,9 @@ env = { "WEBCAKE_API_URL" = "$script:ApiUrl", "WEBCAKE_TOKEN" = "$script:Token",
             $content = $content.TrimEnd() + "`n"
         }
         $content += $tomlBlock
-        Set-Content $configPath -Value $content -Encoding UTF8
+        Write-Utf8NoBom $configPath $content
     } else {
-        "# WebCake CMS MCP Server`n$tomlBlock" | Set-Content $configPath -Encoding UTF8
+        Write-Utf8NoBom $configPath "# WebCake CMS MCP Server`n$tomlBlock"
     }
 
     Write-Host "  [OK] Codex configured ($configPath)" -ForegroundColor Green
