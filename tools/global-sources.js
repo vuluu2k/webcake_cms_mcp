@@ -595,9 +595,38 @@ For element-level changes, prefer update_global_source_element instead.`,
       })).describe("Array of content entries to upsert"),
     },
     ({ contents }) =>
-      handle(() => api.updateGlobalSourceContents({
-        site_id: api.siteId,
-        contents: contents.map((c) => ({ ...c, site_id: api.siteId })),
-      }))
+      handle(async () => {
+        // Safeguard: for each entry, check existing content size
+        for (const entry of contents) {
+          if (!entry.content) continue;
+          const component = entry.type_component;
+          if (!component) continue;
+
+          const existingRes = await api.getGlobalSourceContents({ site_id: api.siteId, component });
+          const existingList = (existingRes && existingRes.data) || existingRes || [];
+          if (!Array.isArray(existingList)) continue;
+
+          const existing = existingList.find(
+            (c) => String(c.global_source_id) === String(entry.global_source_id) && c.language_code === entry.language_code
+          );
+          if (existing && existing.content) {
+            const existingStr = JSON.stringify(existing.content);
+            const newStr = JSON.stringify(entry.content);
+            if (existingStr.length > 200 && newStr.length < existingStr.length * 0.5) {
+              return {
+                error: `BLOCKED: Content for ${entry.global_source_id}/${entry.language_code} would shrink from ${existingStr.length} to ${newStr.length} chars (${Math.round((newStr.length / existingStr.length) * 100)}% of original). Read existing with get_global_source_contents first.`,
+                existing_length: existingStr.length,
+                new_length: newStr.length,
+              };
+            }
+          }
+          break; // Only check first entry to avoid excessive API calls
+        }
+
+        return api.updateGlobalSourceContents({
+          site_id: api.siteId,
+          contents: contents.map((c) => ({ ...c, site_id: api.siteId })),
+        });
+      })
   );
 }
