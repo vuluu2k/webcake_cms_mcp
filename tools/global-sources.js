@@ -65,8 +65,51 @@ function nodeToDetail(node) {
   if (node.specials && Object.keys(node.specials).length) entry.specials = node.specials;
   if (node.events && node.events.length) entry.events = node.events;
   if (node.bindings && node.bindings.length) entry.bindings = node.bindings;
+  // Responsive breakpoints
+  for (const key of Object.keys(node)) {
+    if (/^bp\d+$/.test(key) && node[key] && typeof node[key] === "object") {
+      if (!entry.responsive) entry.responsive = {};
+      entry.responsive[key] = node[key];
+    }
+  }
   if (node.children && node.children.length) entry.children_count = node.children.length;
   return entry;
+}
+
+/** Build a compact summary for a node (id, type, key specials only) */
+function nodeToSummary(node) {
+  const entry = { id: node.id || "", type: node.type || "unknown" };
+  if (node.specials) {
+    if (node.specials.text) entry.text = node.specials.text.substring(0, 100);
+    if (node.specials.custom_class) entry.custom_class = node.specials.custom_class;
+    if (node.specials.custom_css) entry.has_custom_css = true;
+    if (node.specials.bind) entry.bind = node.specials.bind;
+  }
+  if (node.events && node.events.length) entry.events_count = node.events.length;
+  if (node.bindings && node.bindings.length) entry.bindings_count = node.bindings.length;
+  if (node.children && node.children.length) entry.children_count = node.children.length;
+  return entry;
+}
+
+/** Flatten source tree into a list with depth info */
+function flattenSource(source) {
+  const result = [];
+  if (!source || !source.sections) return result;
+  function walk(node, depth, parentId) {
+    if (!node) return;
+    const entry = nodeToSummary(node);
+    entry.depth = depth;
+    if (parentId) entry.parent_id = parentId;
+    result.push(entry);
+    const children = node.children || [];
+    for (const child of children) {
+      walk(child, depth + 1, node.id);
+    }
+  }
+  for (const section of source.sections) {
+    walk(section, 0, null);
+  }
+  return result;
 }
 
 /** Find node by ID in source tree */
@@ -97,6 +140,16 @@ function searchElements(source, filters) {
     if (filters.text) {
       const text = (node.specials && node.specials.text) || "";
       if (!text.toLowerCase().includes(filters.text.toLowerCase())) return;
+    }
+    if (filters.has_custom_class) {
+      const cc = node.specials && node.specials.custom_class;
+      if (!cc) return;
+    }
+    if (filters.has_bind) {
+      if (!(node.bindings && node.bindings.length) && !(node.specials && node.specials.bind)) return;
+    }
+    if (filters.has_events) {
+      if (!(node.events && node.events.length)) return;
     }
     results.push(nodeToDetail(node));
   });
@@ -145,7 +198,8 @@ Omit component to list ALL global sources, or filter by component type.`,
 
   server.tool(
     "get_source_cart",
-    "Get all cart (cart-droppable) global sources for the site. Shortcut for list_global_sources with component='cart-droppable'",
+    `Get all cart (cart-droppable) global sources with full element tree.
+Returns complete element hierarchy for each cart — no need to call get_global_source_detail separately.`,
     {},
     () =>
       handle(async () => {
@@ -154,7 +208,21 @@ Omit component to list ALL global sources, or filter by component type.`,
         if (!Array.isArray(items)) return items;
         return {
           count: items.length,
-          carts: items.map(formatGlobalSource),
+          carts: items.map((gs) => {
+            const source = parseSource(gs.source);
+            const overview = source ? buildOverview(source) : null;
+            const elements = source ? flattenSource(source) : [];
+            return {
+              id: gs.id,
+              site_id: gs.site_id,
+              type: gs.type,
+              component: gs.component,
+              overview,
+              total_elements: elements.length,
+              elements,
+            };
+          }),
+          hint: "Use get_global_source_element for full style/config of a specific element.",
         };
       })
   );
@@ -163,7 +231,9 @@ Omit component to list ALL global sources, or filter by component type.`,
 
   server.tool(
     "get_global_source_detail",
-    "Get full detail of a global source by ID — returns source overview and all top-level elements",
+    `Get full detail of a global source by ID — returns overview and complete element tree.
+Each element shows: id, type, text (truncated), custom_class, bindings, events, depth, and parent_id.
+Use get_global_source_element for full style/config of a specific element.`,
     {
       global_source_id: z.string().describe("Global source ID"),
       component: z.string().describe('Component type (e.g. "cart-droppable", "popup")'),
@@ -179,13 +249,7 @@ Omit component to list ALL global sources, or filter by component type.`,
 
         const source = parseSource(gs.source);
         const overview = source ? buildOverview(source) : null;
-        const topElements = source && source.sections
-          ? source.sections.map((s) => ({
-              id: s.id,
-              type: s.type,
-              children_count: (s.children || []).length,
-            }))
-          : [];
+        const elements = source ? flattenSource(source) : [];
 
         return {
           id: gs.id,
@@ -193,8 +257,9 @@ Omit component to list ALL global sources, or filter by component type.`,
           type: gs.type,
           component: gs.component,
           overview,
-          top_level_elements: topElements,
-          hint: "Use search_global_source_elements to find/filter elements. Use get_global_source_element for full detail of a single element.",
+          total_elements: elements.length,
+          elements,
+          hint: "Use get_global_source_element for full style/config/specials of a specific element by ID.",
         };
       })
   );
@@ -204,15 +269,24 @@ Omit component to list ALL global sources, or filter by component type.`,
   server.tool(
     "search_global_source_elements",
     `Search/filter elements within a global source. Same as search_page_elements but for global sources (cart, popup, etc.).
-Examples: find all buttons → type="button", find by class → custom_class="hero"`,
+Examples:
+- Find all buttons: type="button"
+- Find elements with custom class: custom_class="hero"
+- Find text containing "subscribe": text="subscribe"
+- Find all data-bound elements: has_bind=true
+- Find all elements with events: has_events=true
+- Find all elements with custom CSS classes: has_custom_class=true`,
     {
       global_source_id: z.string().describe("Global source ID"),
       component: z.string().describe('Component type (e.g. "cart-droppable", "popup")'),
-      type: z.string().optional().describe("Filter by element type"),
-      id: z.string().optional().describe("Filter by element ID substring"),
+      type: z.string().optional().describe("Filter by element type (e.g. 'text', 'button', 'image', 'container', 'section', 'form', 'input')"),
+      id: z.string().optional().describe("Filter by element ID substring (e.g. 'TEXT', 'BUTTON-3')"),
       custom_class: z.string().optional().describe("Filter by custom class substring"),
       text: z.string().optional().describe("Filter by text content substring"),
-      limit: z.number().default(50).describe("Max results"),
+      has_custom_class: z.boolean().optional().describe("Only elements that have a custom class"),
+      has_bind: z.boolean().optional().describe("Only elements with data bindings (product, category, blog)"),
+      has_events: z.boolean().optional().describe("Only elements with events (click, submit, mouseenter, etc.)"),
+      limit: z.number().default(50).describe("Max results (default 50)"),
     },
     ({ global_source_id, component, ...filters }) =>
       handle(async () => {
