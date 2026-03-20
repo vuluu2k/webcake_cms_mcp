@@ -349,7 +349,32 @@ Add include_guide=true on first call to get the coding guide`,
       for (const [k, v] of Object.entries(codes)) {
         if (v != null) settings[k] = v;
       }
-      return handle(() => api.updateSiteSettings(settings));
+      return handle(async () => {
+        const fieldsToUpdate = Object.keys(settings);
+        if (fieldsToUpdate.length === 0) return { error: "No fields specified" };
+
+        // Safeguard: read existing values and compare before overwriting
+        const existingValues = await Promise.all(fieldsToUpdate.map((f) => api.getSiteSettingField(f)));
+        const comparison = {};
+        for (let i = 0; i < fieldsToUpdate.length; i++) {
+          const field = fieldsToUpdate[i];
+          const existing = existingValues[i] || "";
+          const newVal = settings[field] || "";
+          comparison[field] = { existing_length: existing.length, new_length: newVal.length };
+
+          // Block if existing content is substantial and new content is much smaller (likely data loss)
+          if (existing.length > 100 && newVal.length < existing.length * 0.5) {
+            return {
+              error: `BLOCKED: Field "${field}" would shrink from ${existing.length} to ${newVal.length} chars (${Math.round((newVal.length / existing.length) * 100)}% of original). This may indicate data loss. Read existing content with get_site_custom_code first, then merge your changes.`,
+              existing_preview: existing.substring(0, 500),
+              comparison,
+            };
+          }
+        }
+
+        await api.updateSiteSettings(settings);
+        return { success: true, comparison };
+      });
     }
   );
 
@@ -421,7 +446,27 @@ For full rewrites, use update_site_custom_code instead.`,
       meta_tags: z.array(z.record(z.any())).optional().describe("SEO meta tags"),
     },
     ({ page_id, language_code, content, meta_tags }) =>
-      handle(() => api.updatePageContent({ page_id, language_code, content, meta_tags }))
+      handle(async () => {
+        // Safeguard: read existing content and block if new content is suspiciously smaller
+        const existingRes = await api.listPageContents({ page_id });
+        const existingContents = (existingRes && existingRes.data) || existingRes || [];
+        if (Array.isArray(existingContents)) {
+          const existing = existingContents.find((c) => c.language_code === language_code);
+          if (existing && existing.content) {
+            const existingStr = JSON.stringify(existing.content);
+            const newStr = JSON.stringify(content);
+            if (existingStr.length > 200 && newStr.length < existingStr.length * 0.5) {
+              return {
+                error: `BLOCKED: New content (${newStr.length} chars) is much smaller than existing (${existingStr.length} chars) — ${Math.round((newStr.length / existingStr.length) * 100)}% of original. This may indicate fabricated data or data loss. Read existing content with list_page_contents first, then merge your changes.`,
+                existing_length: existingStr.length,
+                new_length: newStr.length,
+              };
+            }
+          }
+        }
+
+        return api.updatePageContent({ page_id, language_code, content, meta_tags });
+      })
   );
 
   server.tool("list_global_sections", "List reusable global sections", {}, () =>
@@ -557,6 +602,21 @@ Sends the source directly to the backend API and returns the saved result for ve
         }
         if (custom_code != null) {
           body.custom_code = custom_code;
+        }
+
+        // Safeguard: read existing source and block if new source is suspiciously smaller
+        if (body.source) {
+          const { source: existingSource, error } = await getPageWithSource(api, page_id);
+          if (!error && existingSource) {
+            const existingStr = JSON.stringify(existingSource);
+            if (existingStr.length > 200 && body.source.length < existingStr.length * 0.5) {
+              return {
+                error: `BLOCKED: New source (${body.source.length} chars) is much smaller than existing (${existingStr.length} chars) — ${Math.round((body.source.length / existingStr.length) * 100)}% of original. This may indicate fabricated data or data loss. Read the page source with get_page_source/get_page_element first, then apply changes.`,
+                existing_length: existingStr.length,
+                new_length: body.source.length,
+              };
+            }
+          }
         }
 
         const res = await api.updatePageSource(page_id, body);
