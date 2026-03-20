@@ -173,48 +173,77 @@ function buildTreeText(source) {
   return lines.join("\n");
 }
 
-// ── Cache — fetch once, reuse 30s ──
+// ── Incremental cache — populated as tools are used, keyed by ID ──
+//
+// Why not fetch-all-at-once: the API may require `component` filter to return
+// certain types (e.g. popup). So we cache incrementally: list/get tools fetch
+// from API with the correct filter and feed results into the cache. Subsequent
+// detail/search/element tools can resolve by ID from cache without re-fetching.
 
-let _gsCache = null;
-let _gsCacheTime = 0;
+const _gsById = new Map(); // id → { gs, time }
 const CACHE_TTL = 30000;
 
-async function getCachedGlobalSources(api) {
+/** Feed API results into cache */
+function cacheItems(items) {
+  if (!Array.isArray(items)) return;
   const now = Date.now();
-  if (_gsCache && now - _gsCacheTime < CACHE_TTL) return _gsCache;
+  for (const item of items) {
+    if (item?.id) _gsById.set(String(item.id), { gs: item, time: now });
+  }
+}
 
-  // Fetch from both endpoints (cart uses a separate API) and merge by ID
+function invalidateGsCache() {
+  _gsById.clear();
+}
+
+/** Fetch global sources by component from API and cache results */
+async function fetchByComponent(api, component) {
+  const res = component === "cart-droppable"
+    ? await api.getSourceCart()
+    : await api.getGlobalSources({ component });
+  const items = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+  cacheItems(items);
+  return items;
+}
+
+/** Fetch ALL global sources (general + cart) and cache */
+async function fetchAll(api) {
   const [gsRes, cartRes] = await Promise.all([
     api.getGlobalSources({}).catch(() => null),
     api.getSourceCart().catch(() => null),
   ]);
-
   const gsList = Array.isArray(gsRes?.data) ? gsRes.data : (Array.isArray(gsRes) ? gsRes : []);
   const cartList = Array.isArray(cartRes?.data) ? cartRes.data : (Array.isArray(cartRes) ? cartRes : []);
+  const merged = [...gsList, ...cartList];
+  cacheItems(merged);
+  return merged;
+}
 
-  const byId = new Map();
-  for (const item of [...gsList, ...cartList]) {
-    if (item && item.id) byId.set(String(item.id), item);
+/**
+ * Resolve global source by ID.
+ * 1. Check cache (if fresh)
+ * 2. If miss + component hint provided → fetch that component
+ * 3. If miss + no hint → fetch all
+ */
+async function getGsWithSource(api, globalSourceId, componentHint) {
+  const id = String(globalSourceId);
+
+  // 1. Cache hit?
+  const cached = _gsById.get(id);
+  if (cached && Date.now() - cached.time < CACHE_TTL) {
+    return { gs: cached.gs, source: parseSource(cached.gs.source) };
   }
 
-  _gsCache = [...byId.values()];
-  _gsCacheTime = now;
-  return _gsCache;
-}
+  // 2. Cache miss — fetch and retry
+  if (componentHint) {
+    await fetchByComponent(api, componentHint);
+  } else {
+    await fetchAll(api);
+  }
 
-function invalidateGsCache() {
-  _gsCache = null;
-  _gsCacheTime = 0;
-}
-
-/** Resolve global source by ID from cache — no component param needed */
-async function getGsWithSource(api, globalSourceId) {
-  const items = await getCachedGlobalSources(api);
-  if (!Array.isArray(items)) return { error: "Failed to load global sources" };
-  const gs = items.find((g) => String(g.id) === String(globalSourceId));
-  if (!gs) return { error: `Global source "${globalSourceId}" not found` };
-  const source = parseSource(gs.source);
-  return { gs, source };
+  const entry = _gsById.get(id);
+  if (!entry) return { error: `Global source "${globalSourceId}" not found. Provide component param or call list_global_sources first.` };
+  return { gs: entry.gs, source: parseSource(entry.gs.source) };
 }
 
 // ── Zod schemas (reused across tools) ──
@@ -237,25 +266,25 @@ export function registerGlobalSourceTools(server, api, handle) {
 
   server.tool(
     "list_global_sources",
-    `List all global sources (cart, popup, etc.). Returns compact summary per source.
-Omit component to list ALL, or filter by type.`,
+    `List global sources (cart, popup, etc.). Returns compact summary per source.
+Always provide component to filter by type — the API may not return all types without a filter.`,
     {
-      component: z.string().optional().describe('Filter by component type (e.g. "cart-droppable", "popup"). Omit to list all'),
+      component: z.string().optional().describe('Filter by component type (e.g. "cart-droppable", "popup"). Recommended to always provide'),
     },
     ({ component }) =>
       handle(async () => {
-        const items = await getCachedGlobalSources(api);
+        // Always call API with component filter — API may require it for certain types
+        const items = component ? await fetchByComponent(api, component) : await fetchAll(api);
         if (!Array.isArray(items)) return items;
 
-        const filtered = component ? items.filter((g) => g.component === component) : items;
         return {
-          count: filtered.length,
-          global_sources: filtered.map((gs) => {
+          count: items.length,
+          global_sources: items.map((gs) => {
             const source = parseSource(gs.source);
             const ov = source ? buildOverview(source) : null;
             return { id: gs.id, component: gs.component, type: gs.type, elements: ov ? ov.elements : 0, sections: ov ? ov.sections : 0 };
           }),
-          hint: "Use get_global_source_detail for full element tree (only global_source_id needed).",
+          hint: "Use get_global_source_detail with global_source_id for full element tree.",
         };
       })
   );
@@ -267,13 +296,12 @@ Shows full element hierarchy — no need to call get_global_source_detail separa
     {},
     () =>
       handle(async () => {
-        const items = await getCachedGlobalSources(api);
+        const items = await fetchByComponent(api, "cart-droppable");
         if (!Array.isArray(items)) return items;
 
-        const carts = items.filter((g) => g.component === "cart-droppable");
         return {
-          count: carts.length,
-          carts: carts.map((gs) => {
+          count: items.length,
+          carts: items.map((gs) => {
             const source = parseSource(gs.source);
             return {
               id: gs.id,
@@ -293,13 +321,14 @@ Shows full element hierarchy — no need to call get_global_source_detail separa
     "get_global_source_detail",
     `Get full detail of a global source — compact tree view showing all elements.
 Each line: ID [type] "text" .class [events] [bindings] (children_count).
-No component param needed — auto-resolved from cache.`,
+Provide component for faster lookup; omit if you already called list_global_sources.`,
     {
       global_source_id: z.string().describe("Global source ID"),
+      component: z.string().optional().describe('Component hint for faster lookup (e.g. "popup", "cart-droppable")'),
     },
-    ({ global_source_id }) =>
+    ({ global_source_id, component }) =>
       handle(async () => {
-        const { gs, source, error } = await getGsWithSource(api, global_source_id);
+        const { gs, source, error } = await getGsWithSource(api, global_source_id, component);
         if (error) return { error };
 
         return {
@@ -327,6 +356,7 @@ Examples:
 - With custom class: has_custom_class=true`,
     {
       global_source_id: z.string().describe("Global source ID"),
+      component: z.string().optional().describe('Component hint for faster lookup (e.g. "popup", "cart-droppable")'),
       type: z.string().optional().describe("Filter by element type (e.g. 'text', 'button', 'image', 'container', 'section')"),
       id: z.string().optional().describe("Filter by element ID substring (e.g. 'TEXT', 'BUTTON-3')"),
       custom_class: z.string().optional().describe("Filter by custom class substring"),
@@ -336,9 +366,9 @@ Examples:
       has_events: z.boolean().optional().describe("Only elements with events"),
       limit: z.number().default(50).describe("Max results (default 50)"),
     },
-    ({ global_source_id, ...filters }) =>
+    ({ global_source_id, component, ...filters }) =>
       handle(async () => {
-        const { source, error } = await getGsWithSource(api, global_source_id);
+        const { source, error } = await getGsWithSource(api, global_source_id, component);
         if (error) return { error };
         if (!source) return { error: "Global source has no source data" };
 
@@ -349,14 +379,15 @@ Examples:
 
   server.tool(
     "get_global_source_element",
-    "Get full detail of a single element (style, config, specials, events, bindings, responsive, children). No component needed.",
+    "Get full detail of a single element (style, config, specials, events, bindings, responsive, children).",
     {
       global_source_id: z.string().describe("Global source ID"),
       element_id: z.string().describe("Element ID (e.g. 'TEXT-3', 'BUTTON-1')"),
+      component: z.string().optional().describe('Component hint for faster lookup'),
     },
-    ({ global_source_id, element_id }) =>
+    ({ global_source_id, element_id, component }) =>
       handle(async () => {
-        const { source, error } = await getGsWithSource(api, global_source_id);
+        const { source, error } = await getGsWithSource(api, global_source_id, component);
         if (error) return { error };
         if (!source) return { error: "Global source has no source data" };
 
@@ -385,6 +416,7 @@ Examples:
     {
       global_source_id: z.string().describe("Global source ID"),
       element_id: z.string().describe("Element ID to update (e.g. 'TEXT-3', 'BUTTON-1')"),
+      component: z.string().optional().describe('Component hint for faster lookup'),
       style: z.record(z.any()).optional().describe("CSS style properties to merge"),
       config: z.record(z.any()).optional().describe("Config properties to merge"),
       specials: z.record(z.any()).optional().describe("Specials to merge (text, custom_class, custom_css)"),
@@ -392,9 +424,9 @@ Examples:
       bindings: z.array(z.record(z.any())).optional().describe("Complete bindings array (replaces existing)"),
       responsive: z.record(z.any()).optional().describe("Responsive overrides (e.g. {bp1: {style: {...}}})"),
     },
-    ({ global_source_id, element_id, ...updates }) =>
+    ({ global_source_id, element_id, component, ...updates }) =>
       handle(async () => {
-        const { gs, source, error } = await getGsWithSource(api, global_source_id);
+        const { gs, source, error } = await getGsWithSource(api, global_source_id, component);
         if (error) return { error };
         if (!source) return { error: "Global source has no source data" };
 
@@ -423,11 +455,12 @@ Examples:
 Same merge rules as update_global_source_element: style/config/specials are shallow-merged, events/bindings are replaced.`,
     {
       global_source_id: z.string().describe("Global source ID"),
+      component: z.string().optional().describe('Component hint for faster lookup'),
       updates: z.array(elementUpdateShape).describe("Array of element updates"),
     },
-    ({ global_source_id, updates: elementUpdates }) =>
+    ({ global_source_id, component, updates: elementUpdates }) =>
       handle(async () => {
-        const { gs, source, error } = await getGsWithSource(api, global_source_id);
+        const { gs, source, error } = await getGsWithSource(api, global_source_id, component);
         if (error) return { error };
         if (!source) return { error: "Global source has no source data" };
 
