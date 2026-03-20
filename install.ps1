@@ -204,7 +204,30 @@ function Merge-McpConfig($configPath) {
 
 function Configure-ClaudeDesktop {
     Write-Host "  [INFO] Configuring Claude Desktop..." -ForegroundColor Blue
-    $configPath = "$env:APPDATA\Claude\claude_desktop_config.json"
+
+    # Standard path (standalone installer)
+    $standardPath = "$env:APPDATA\Claude\claude_desktop_config.json"
+
+    # Microsoft Store path (packaged app) — e.g. Claude_pzs8sxrjxfjjc
+    $storePath = $null
+    $packagesDir = "$env:LOCALAPPDATA\Packages"
+    if (Test-Path $packagesDir) {
+        $claudePkg = Get-ChildItem $packagesDir -Directory -Filter "Claude_*" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($claudePkg) {
+            $storePath = "$($claudePkg.FullName)\LocalCache\Roaming\Claude\claude_desktop_config.json"
+        }
+    }
+
+    # Decide which path to use
+    if ($storePath -and (Test-Path (Split-Path $storePath -Parent))) {
+        $configPath = $storePath
+    } elseif ($storePath -and -not (Test-Path (Split-Path $standardPath -Parent))) {
+        # Store package exists but Roaming\Claude dir doesn't yet — create it
+        $configPath = $storePath
+    } else {
+        $configPath = $standardPath
+    }
+
     Merge-McpConfig $configPath
     Write-Host "  [OK] Claude Desktop configured ($configPath)" -ForegroundColor Green
     Write-Host "  [WARN] Restart Claude Desktop to activate" -ForegroundColor Yellow
