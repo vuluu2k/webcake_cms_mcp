@@ -23,8 +23,19 @@ function parseSource(sourceJson) {
   }
 }
 
+/** Get root nodes from source — handles both formats:
+ *  - Page format: { sections: [...] } → returns sections array
+ *  - Global source format: { id, type, children: [...] } → returns [rootNode]
+ */
+function getRoots(source) {
+  if (!source) return [];
+  if (source.sections) return source.sections;
+  if (source.id) return [source];
+  return [];
+}
+
+/** Walk all nodes in source tree — handles both page and global source format */
 function walkSource(source, fn) {
-  if (!source || !source.sections) return;
   function walk(node) {
     if (!node) return true;
     if (fn(node) === false) return false;
@@ -33,8 +44,8 @@ function walkSource(source, fn) {
     }
     return true;
   }
-  for (const section of source.sections) {
-    if (walk(section) === false) return;
+  for (const root of getRoots(source)) {
+    if (walk(root) === false) return;
   }
 }
 
@@ -49,8 +60,9 @@ function buildOverview(source) {
     const cc = node.specials && node.specials.custom_class;
     if (cc) cc.split(",").map((s) => s.trim()).filter(Boolean).forEach((c) => customClasses.add(c));
   });
+  const roots = getRoots(source);
   return {
-    sections: (source.sections || []).length,
+    sections: roots.length,
     elements: total,
     types: typeCounts,
     classes: [...customClasses].sort(),
@@ -134,7 +146,8 @@ function searchElements(source, filters) {
  *   └─ BUTTON-1 [button] "Thanh toán" .checkout-btn [2ev]
  */
 function buildTreeText(source) {
-  if (!source || !source.sections || !source.sections.length) return "(empty)";
+  const roots = getRoots(source);
+  if (!roots.length) return "(empty)";
   const lines = [];
 
   function walk(node, prefix, isLast) {
@@ -167,8 +180,8 @@ function buildTreeText(source) {
     }
   }
 
-  for (let i = 0; i < source.sections.length; i++) {
-    walk(source.sections[i], "", i === source.sections.length - 1);
+  for (let i = 0; i < roots.length; i++) {
+    walk(roots[i], "", i === roots.length - 1);
   }
   return lines.join("\n");
 }
@@ -219,12 +232,7 @@ async function fetchAll(api) {
   return merged;
 }
 
-/**
- * Resolve global source by ID.
- * 1. Check cache (if fresh)
- * 2. If miss + component hint provided → fetch that component
- * 3. If miss + no hint → fetch all
- */
+/** Resolve global source by ID. Source is the original object — no wrapping. */
 async function getGsWithSource(api, globalSourceId, componentHint) {
   const id = String(globalSourceId);
 
