@@ -173,9 +173,13 @@ Get token and session_id from browser DevTools → Network tab → copy from any
     `Toggle update confirmation mode. Controls whether update tools ask for user confirmation before saving.
 - "always_confirm" (default): Shows diff first, requires user approval before saving. Safer.
 - "auto_apply": Applies changes immediately without preview. Faster but riskier.
-Current mode is saved to database and persists across sessions.`,
+Current mode is saved to database and persists across sessions.
+
+Call this tool when the user says things like:
+→ "tự động xác nhận" / "auto confirm" / "không cần hỏi" / "don't ask" / "apply directly" → mode: "auto_apply"
+→ "hỏi trước khi lưu" / "luôn hỏi" / "always ask" / "confirm before saving" / "xác nhận trước" → mode: "always_confirm"`,
     {
-      mode: z.enum(["always_confirm", "auto_apply"]).describe('Set to "always_confirm" (safe, default) or "auto_apply" (fast, no confirmation)'),
+      mode: z.enum(["always_confirm", "auto_apply"]).describe('Set to "always_confirm" (safe) or "auto_apply" (fast). Map user intent: "tự động"/"auto"/"không cần hỏi" → auto_apply, "hỏi lại"/"confirm"/"luôn hỏi" → always_confirm'),
     },
     ({ mode }) =>
       handle(async () => {
