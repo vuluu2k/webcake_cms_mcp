@@ -11,6 +11,15 @@ export function getSavedConfig() {
   };
 }
 
+/**
+ * Get confirm mode for update operations.
+ * - "always_confirm" (default): dry_run=true, AI must show diff and ask user before applying
+ * - "auto_apply": dry_run=false, changes apply immediately without confirmation
+ */
+export function getConfirmMode() {
+  return getConfig("confirm_mode") || "always_confirm";
+}
+
 // ── Tools ──
 
 export function registerContextTools(server, api, handle) {
@@ -38,7 +47,8 @@ export function registerContextTools(server, api, handle) {
                 name: [me.data.first_name, me.data.last_name].filter(Boolean).join(" ") || null,
               }
             : null,
-          hint: "Use list_my_sites to see all sites, switch_site to change site. Use sync_knowledge then list_knowledge to load knowledge base — always check knowledge before answering site-specific questions.",
+          confirm_mode: getConfirmMode(),
+          hint: "Use list_my_sites to see all sites, switch_site to change site. Use toggle_confirm_mode to switch between 'always_confirm' (safe) and 'auto_apply' (fast). Use sync_knowledge then list_knowledge to load knowledge base — always check knowledge before answering site-specific questions.",
         };
       })
   );
@@ -154,6 +164,28 @@ Get token and session_id from browser DevTools → Network tab → copy from any
             name: [me.data.first_name, me.data.last_name].filter(Boolean).join(" ") || null,
           },
           current_site_id: api.siteId,
+        };
+      })
+  );
+
+  server.tool(
+    "toggle_confirm_mode",
+    `Toggle update confirmation mode. Controls whether update tools ask for user confirmation before saving.
+- "always_confirm" (default): Shows diff first, requires user approval before saving. Safer.
+- "auto_apply": Applies changes immediately without preview. Faster but riskier.
+Current mode is saved to database and persists across sessions.`,
+    {
+      mode: z.enum(["always_confirm", "auto_apply"]).describe('Set to "always_confirm" (safe, default) or "auto_apply" (fast, no confirmation)'),
+    },
+    ({ mode }) =>
+      handle(async () => {
+        setConfig("confirm_mode", mode);
+        return {
+          confirm_mode: mode,
+          saved: true,
+          description: mode === "always_confirm"
+            ? "Update tools will now preview changes (dry_run) and require your confirmation before saving."
+            : "Update tools will now apply changes immediately without preview. Use with caution.",
         };
       })
   );

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getConfirmMode } from "./context.js";
 
 /**
  * Global Sources tools — manage site-wide components: cart, popup, overview, etc.
@@ -454,15 +455,17 @@ Examples:
 
   server.tool(
     "update_global_source_element",
-    `Update a single element within a global source. Finds by ID, computes diff, optionally saves.
-- dry_run=true (default): preview changes only — shows diff, does NOT save. Always preview first and show user.
-- dry_run=false: apply changes and save to backend.
+    `Update a single element within a global source. Two-step process:
+STEP 1: Call with dry_run=true (default) → returns diff of what will change.
+STEP 2: Show the diff to the user and ask for confirmation. NEVER proceed without explicit user approval.
+STEP 3: Only after user confirms, call again with dry_run=false to apply.
+IMPORTANT: You MUST show the diff to the user and get explicit "yes/ok/confirm" before calling with dry_run=false. Skipping confirmation risks data loss.
 Merge rules: style/config/specials = shallow merge, events/bindings = replace array, responsive = merge by bp key.`,
     {
       global_source_id: z.string().describe("Global source ID"),
       element_id: z.string().describe("Element ID to update (e.g. 'TEXT-3', 'BUTTON-1')"),
       component: z.string().optional().describe('Component hint for faster lookup'),
-      dry_run: z.boolean().default(true).describe("Preview only (true, default) or apply changes (false). Always preview first."),
+      dry_run: z.boolean().optional().describe("Preview only (true) or apply changes (false). Defaults to confirm_mode setting. Use toggle_confirm_mode to change default."),
       style: z.record(z.any()).optional().describe("CSS style properties to merge"),
       config: z.record(z.any()).optional().describe("Config properties to merge"),
       specials: z.record(z.any()).optional().describe("Specials to merge (text, custom_class, custom_css)"),
@@ -470,8 +473,10 @@ Merge rules: style/config/specials = shallow merge, events/bindings = replace ar
       bindings: z.array(z.record(z.any())).optional().describe("Complete bindings array (replaces existing)"),
       responsive: z.record(z.any()).optional().describe("Responsive overrides (e.g. {bp1: {style: {...}}})"),
     },
-    ({ global_source_id, element_id, component, dry_run, ...updates }) =>
+    ({ global_source_id, element_id, component, dry_run: dryRunParam, ...updates }) =>
       handle(async () => {
+        // Resolve dry_run: explicit param wins, otherwise follow confirm_mode setting
+        const dry_run = dryRunParam !== undefined ? dryRunParam : getConfirmMode() === "always_confirm";
         // Force fresh read before write to avoid stale cache overwriting newer data
         invalidateGsCache();
         const { gs, source, error } = await getGsWithSource(api, global_source_id, component);
@@ -529,18 +534,21 @@ Merge rules: style/config/specials = shallow merge, events/bindings = replace ar
 
   server.tool(
     "update_global_source_elements",
-    `Batch update multiple elements in one global source.
-- dry_run=true (default): preview all changes — shows per-element diff, does NOT save.
-- dry_run=false: apply all changes and save.
+    `Batch update multiple elements in one global source. Two-step process:
+STEP 1: Call with dry_run=true (default) → returns per-element diff.
+STEP 2: Show all diffs to the user and ask for confirmation. NEVER proceed without explicit user approval.
+STEP 3: Only after user confirms, call again with dry_run=false to apply.
+IMPORTANT: You MUST show the diff to the user and get explicit "yes/ok/confirm" before calling with dry_run=false. Skipping confirmation risks data loss.
 Same merge rules: style/config/specials = shallow merge, events/bindings = replace.`,
     {
       global_source_id: z.string().describe("Global source ID"),
       component: z.string().optional().describe('Component hint for faster lookup'),
-      dry_run: z.boolean().default(true).describe("Preview only (true, default) or apply changes (false). Always preview first."),
+      dry_run: z.boolean().optional().describe("Preview only (true) or apply changes (false). Defaults to confirm_mode setting."),
       updates: z.array(elementUpdateShape).describe("Array of element updates"),
     },
-    ({ global_source_id, component, dry_run, updates: elementUpdates }) =>
+    ({ global_source_id, component, dry_run: dryRunParam, updates: elementUpdates }) =>
       handle(async () => {
+        const dry_run = dryRunParam !== undefined ? dryRunParam : getConfirmMode() === "always_confirm";
         invalidateGsCache();
         const { gs, source, error } = await getGsWithSource(api, global_source_id, component);
         if (error) return { error };
@@ -619,8 +627,12 @@ Same merge rules: style/config/specials = shallow merge, events/bindings = repla
 
   server.tool(
     "update_global_source",
-    `Replace full source of a global source. Safeguarded: blocks if new source is <50% of existing size (likely data loss).
-For element-level changes, prefer update_global_source_element instead.`,
+    `Replace full source of a global source.
+IMPORTANT: Before calling this tool, you MUST:
+1. Read existing source with get_global_source_detail first
+2. Show the user what will change and get explicit confirmation
+3. NEVER call without user approval — this replaces the ENTIRE source
+Safeguarded: blocks if new source is <50% of existing size. For element-level changes, prefer update_global_source_element instead.`,
     {
       global_source_id: z.string().describe("Global source ID"),
       source: z.any().describe("New source configuration (JSON object)"),
@@ -688,7 +700,8 @@ For element-level changes, prefer update_global_source_element instead.`,
 
   server.tool(
     "update_global_source_contents",
-    `Update multilingual contents (upsert). Each entry: global_source_id, language_code, content.`,
+    `Update multilingual contents (upsert). Each entry: global_source_id, language_code, content.
+IMPORTANT: Before calling, you MUST read existing contents with get_global_source_contents first, then show the user what will change and get explicit confirmation. NEVER update without user approval.`,
     {
       contents: z.array(z.object({
         global_source_id: z.string().describe("Global source ID"),

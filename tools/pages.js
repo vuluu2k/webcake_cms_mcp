@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CUSTOM_CODE_GUIDE } from "../guides.js";
+import { getConfirmMode } from "./context.js";
 
 /**
  * Page source utilities.
@@ -370,6 +371,7 @@ Add include_guide=true on first call to get the coding guide`,
   server.tool(
     "update_site_custom_code",
     `Update custom code (CSS/JS) for the entire site. Only sends fields you specify — others remain unchanged.
+IMPORTANT: Before calling, you MUST read existing code with get_site_custom_code first, then show the user what will change and get explicit confirmation. NEVER update without user approval.
 - code_before_head: HTML/script inserted before </head>
 - code_before_body: HTML/script inserted before </body>
 - code_custom_css: Custom CSS (auto-wrapped in <style>)
@@ -474,7 +476,8 @@ For full rewrites, use update_site_custom_code instead.`,
 
   server.tool(
     "update_page_content",
-    "Create/update page content for a specific language",
+    `Create/update page content for a specific language.
+IMPORTANT: Before calling, you MUST read existing content with list_page_contents first, then show the user what will change and get explicit confirmation. NEVER update without user approval.`,
     {
       page_id: z.string().describe("Page ID"),
       language_code: z.string().describe("Language code (e.g. 'en', 'vi')"),
@@ -537,14 +540,16 @@ For full rewrites, use update_site_custom_code instead.`,
 
   server.tool(
     "update_page_element",
-    `Update properties of a specific element in page source. Finds by ID, computes diff, optionally saves.
-- dry_run=true (default): preview changes only — shows diff, does NOT save. Always preview first and show user.
-- dry_run=false: apply changes and save to backend.
+    `Update properties of a specific element in page source. Two-step process:
+STEP 1: Call with dry_run=true (default) → returns diff of what will change.
+STEP 2: Show the diff to the user and ask for confirmation. NEVER proceed without explicit user approval.
+STEP 3: Only after user confirms, call again with dry_run=false to apply.
+IMPORTANT: You MUST show the diff to the user and get explicit "yes/ok/confirm" before calling with dry_run=false. Skipping confirmation risks data loss.
 Merge rules: style/config/specials = shallow merge, events/bindings = replace array, responsive = merge by bp key.`,
     {
       page_id: z.string().describe("Page ID"),
       element_id: z.string().describe("Element ID to update (e.g. 'TEXT-3', 'BUTTON-1')"),
-      dry_run: z.boolean().default(true).describe("Preview only (true, default) or apply changes (false). Always preview first."),
+      dry_run: z.boolean().optional().describe("Preview only (true) or apply changes (false). Defaults to confirm_mode setting. Use toggle_confirm_mode to change default."),
       style: z.record(z.any()).optional().describe("CSS style properties to merge (e.g. {color: '#fff', 'font-size': '16px'})"),
       config: z.record(z.any()).optional().describe("Config properties to merge"),
       specials: z.record(z.any()).optional().describe("Specials to merge (text, custom_class, custom_css, etc.)"),
@@ -552,8 +557,9 @@ Merge rules: style/config/specials = shallow merge, events/bindings = replace ar
       bindings: z.array(z.record(z.any())).optional().describe("Complete bindings array (replaces existing)"),
       responsive: z.record(z.any()).optional().describe("Responsive breakpoint overrides (e.g. {bp1: {style: {...}, config: {...}}})"),
     },
-    ({ page_id, element_id, dry_run, ...updates }) =>
+    ({ page_id, element_id, dry_run: dryRunParam, ...updates }) =>
       handle(async () => {
+        const dry_run = dryRunParam !== undefined ? dryRunParam : getConfirmMode() === "always_confirm";
         invalidatePageCache();
         const { page, source, error } = await getPageWithSource(api, page_id);
         if (error) return { error };
@@ -601,13 +607,15 @@ Merge rules: style/config/specials = shallow merge, events/bindings = replace ar
 
   server.tool(
     "update_page_elements",
-    `Batch update multiple elements in one page.
-- dry_run=true (default): preview all changes — shows per-element diff, does NOT save.
-- dry_run=false: apply all changes and save.
+    `Batch update multiple elements in one page. Two-step process:
+STEP 1: Call with dry_run=true (default) → returns per-element diff.
+STEP 2: Show all diffs to the user and ask for confirmation. NEVER proceed without explicit user approval.
+STEP 3: Only after user confirms, call again with dry_run=false to apply.
+IMPORTANT: You MUST show the diff to the user and get explicit "yes/ok/confirm" before calling with dry_run=false. Skipping confirmation risks data loss.
 Same merge rules: style/config/specials = shallow merge, events/bindings = replace.`,
     {
       page_id: z.string().describe("Page ID"),
-      dry_run: z.boolean().default(true).describe("Preview only (true, default) or apply changes (false). Always preview first."),
+      dry_run: z.boolean().optional().describe("Preview only (true) or apply changes (false). Defaults to confirm_mode setting."),
       updates: z.array(z.object({
         element_id: z.string().describe("Element ID"),
         style: z.record(z.any()).optional(),
@@ -618,8 +626,9 @@ Same merge rules: style/config/specials = shallow merge, events/bindings = repla
         responsive: z.record(z.any()).optional(),
       })).describe("Array of element updates"),
     },
-    ({ page_id, dry_run, updates: elementUpdates }) =>
+    ({ page_id, dry_run: dryRunParam, updates: elementUpdates }) =>
       handle(async () => {
+        const dry_run = dryRunParam !== undefined ? dryRunParam : getConfirmMode() === "always_confirm";
         invalidatePageCache();
         const { page, source, error } = await getPageWithSource(api, page_id);
         if (error) return { error };
@@ -671,8 +680,12 @@ Same merge rules: style/config/specials = shallow merge, events/bindings = repla
 
   server.tool(
     "update_page_source",
-    `Directly update the full page source JSON. Use this when you need to replace the entire source or when element-level updates don't persist.
-Sends the source directly to the backend API and returns the saved result for verification.`,
+    `Directly update the full page source JSON.
+IMPORTANT: Before calling this tool, you MUST:
+1. Read existing source with get_page_source first
+2. Show the user what will change and get explicit confirmation
+3. NEVER call without user approval — this replaces the ENTIRE page source
+Safeguarded: blocks if new source is <50% of existing size.`,
     {
       page_id: z.string().describe("Page ID"),
       source: z.any().describe("Full page source object (sections tree) or JSON string"),
