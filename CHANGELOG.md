@@ -5,6 +5,15 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.31.9] - 2026-09-07
+
+### Added
+- Pages created by `create_page`, `build_page`, and `commit_page_draft` are now stamped with `by_ai: "mcp"` (persisted to the backend `pages.by_ai` column) so the builder can flag AI-authored pages.
+
+### Changed
+- `create_page`, `build_page`, `start_page_draft`, and `commit_page_draft` now check for an existing page before creating one: a duplicate `main` (homepage), `error`, or `maintain` page, or a `slug` already used on the site, is refused with the conflicting `existing_page` id so you edit that page in place (`replace_page_source` / `add_section` / `update_page`) instead of creating a shadow duplicate; `dry_run` calls report `blocked: true` with the same conflict detail. Only `custom` pages remain unlimited.
+- `get_build_guide` documents the one-page-per-site rule for the `main`, `error`, and `maintain` page types, and clarifies that `store`, `member`, `blog`, and `custom` pages are instead kept unique by `slug`.
+
 ## [1.31.8] - 2026-06-29
 
 ### Fixed

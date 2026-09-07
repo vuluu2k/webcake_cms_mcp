@@ -5,6 +5,15 @@
 Mọi thay đổi đáng chú ý của dự án được ghi lại trong file này.
 Định dạng dựa trên [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.31.9] - 2026-09-07
+
+### Added
+- Các trang được tạo bởi `create_page`, `build_page` và `commit_page_draft` nay được đánh dấu `by_ai: "mcp"` (lưu vào cột `pages.by_ai` ở backend) để builder có thể gắn nhãn các trang do AI tạo.
+
+### Changed
+- `create_page`, `build_page`, `start_page_draft` và `commit_page_draft` nay kiểm tra trang đã tồn tại trước khi tạo mới: một trang `main` (trang chủ), `error` hoặc `maintain` bị trùng, hoặc một `slug` đã được dùng trên site, sẽ bị từ chối kèm id của `existing_page` đang xung đột để bạn chỉnh sửa trang đó tại chỗ (`replace_page_source` / `add_section` / `update_page`) thay vì tạo ra một bản sao ẩn; các lệnh gọi `dry_run` báo `blocked: true` kèm cùng thông tin xung đột. Chỉ trang `custom` là vẫn không giới hạn.
+- `get_build_guide` nay ghi rõ quy tắc mỗi site chỉ có một trang cho các loại `main`, `error` và `maintain`, đồng thời làm rõ rằng các trang `store`, `member`, `blog` và `custom` được giữ duy nhất theo `slug` thay vì theo loại.
+
 ## [1.31.8] - 2026-06-29
 
 ### Fixed
