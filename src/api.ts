@@ -1,4 +1,7 @@
 const DEFAULT_TIMEOUT = 15000;
+/** Stamped on every page this MCP server creates (backend column `pages.by_ai`),
+ *  so the builder can flag AI-authored pages. Mirrors the landing-page convention. */
+export const BY_AI_MARKER = "mcp";
 
 interface ApiInit {
   baseUrl: string;
@@ -174,11 +177,14 @@ export class WebcakeCmsApi {
   }
   /** Create a page. The backend creates the page AND its source in one call, so `source`
    *  is REQUIRED and must be a JSON string (stringified here if an object is passed).
-   *  `slug`/`is_homepage` are NOT applied at create — set them afterwards via updatePage. */
+   *  `slug`/`is_homepage` are NOT applied at create — set them afterwards via updatePage.
+   *  Every page born here is AI-authored, so we stamp `by_ai` (persisted to `pages.by_ai`)
+   *  and the builder shows an "AI" tag next to the page name. */
   createPage(params: any, opts?: { timeout?: number }) {
     const body: any = { ...params };
     if (body.source != null && typeof body.source !== "string") body.source = JSON.stringify(body.source);
     if (body.source == null) body.source = JSON.stringify({ sections: [] });
+    if (body.by_ai == null) body.by_ai = BY_AI_MARKER;
     return this.request("POST", `/api/v1/site/${this.siteId}/page`, { body, timeout: opts?.timeout });
   }
   updatePage(pageId: string, params: any) {

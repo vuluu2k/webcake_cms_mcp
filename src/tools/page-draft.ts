@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { WebcakeCmsApi } from "../api.js";
 import type { Handle } from "../server.js";
-import { PAGE_TYPE_NUM, PAGE_TYPE_FLAG, PAGE_KINDS, buildPageSeo, normalizeSlug } from "./builder.js";
+import { PAGE_TYPE_NUM, PAGE_TYPE_FLAG, PAGE_KINDS, buildPageSeo, normalizeSlug, checkPageCreateConflict } from "./builder.js";
 import { validatePage, finalizeForRender, reassignIds } from "../builder/page.js";
 import {
   createDraft,
@@ -40,7 +40,8 @@ function newPageId(res: any): string | null {
 export function registerPageDraftTools(server: McpServer, api: WebcakeCmsApi, handle: Handle) {
   server.tool(
     "start_page_draft",
-    `Start a page draft (no network). Build a multi-section page safely: cache each section with add_draft_section, then commit_page_draft persists it to the backend INCREMENTALLY (resumable on timeout). Use this instead of build_page for large/multi-section pages. The draft cache is DISPOSABLE (Redis on the remote server when REDIS_URL is set, in-memory otherwise; sliding ~2h TTL) — if a draft is ever lost, just re-send the sections, never a failure.`,
+    `Start a page draft (no network). Build a multi-section page safely: cache each section with add_draft_section, then commit_page_draft persists it to the backend INCREMENTALLY (resumable on timeout). Use this instead of build_page for large/multi-section pages. The draft cache is DISPOSABLE (Redis on the remote server when REDIS_URL is set, in-memory otherwise; sliding ~2h TTL) — if a draft is ever lost, just re-send the sections, never a failure.
+ONE page per site for type main (homepage) / error / maintain, and slugs are unique per site: the draft is refused up-front with the existing page_id to edit instead. Only 'custom' pages can be created over and over.`,
     {
       name: z.string().describe("Page name"),
       slug: z.string().describe("URL slug WITHOUT a leading slash, e.g. 'about', 'collections', 'cart'. A leading '/' is stripped automatically (the storefront matches the bare path segment, so '/cart' would 404). Store pages MUST use: category='collections', product='products', cart='cart', checkout='checkout', thank-you='complete'. Homepage needs no slug (is_homepage:true)."),
@@ -64,6 +65,11 @@ export function registerPageDraftTools(server: McpServer, api: WebcakeCmsApi, ha
     },
     ({ name, slug, type, is_homepage, seo }) =>
       handle(async () => {
+        // Fail before the agent builds any sections: only 'custom' pages may be created
+        // repeatedly — singleton kinds and taken slugs must be edited in place.
+        const conflict = await checkPageCreateConflict(api, { kind: type, slug, is_homepage });
+        if (conflict) return { error: conflict.error, existing_page: conflict.existing_page };
+
         const draft = await createDraft(api.siteId, { name, slug, type, is_homepage, seo });
         return {
           draft_id: draft.draft_id,
@@ -149,8 +155,18 @@ RESUMABLE: if a request fails mid-commit, the draft keeps its page_id + committe
         const validation: any = validatePage(full);
         const total = draft.sections.length;
 
+        // Re-check on commit — a draft can sit for hours, and the page may have been
+        // created meanwhile. Skipped when resuming: the page already exists.
+        const conflict = draft.page_id
+          ? null
+          : await checkPageCreateConflict(api, { kind: draft.meta.type, slug: draft.meta.slug, is_homepage: draft.meta.is_homepage });
+
         if (dry_run) {
-          return { dry_run: true, draft_id, total_sections: total, validation, stats: validation.stats };
+          return { dry_run: true, draft_id, total_sections: total, ...(conflict ? { blocked: true, conflict } : {}), validation, stats: validation.stats };
+        }
+
+        if (conflict) {
+          return { error: conflict.error, existing_page: conflict.existing_page };
         }
 
         if (!validation.valid) {

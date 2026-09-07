@@ -3,7 +3,7 @@ import { CUSTOM_CODE_GUIDE } from "../guides.js";
 import { getConfirmMode } from "./context.js";
 import { normalizeEvents } from "../builder/events.js";
 import { normalizeBindings } from "../builder/bindings.js";
-import { PAGE_TYPE_NUM, PAGE_KINDS, buildPageSeo, normalizeSlug } from "./builder.js";
+import { PAGE_TYPE_NUM, PAGE_KINDS, buildPageSeo, normalizeSlug, checkPageCreateConflict } from "./builder.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { WebcakeCmsApi } from "../api.js";
 import type { Handle } from "../server.js";
@@ -313,11 +313,11 @@ Examples:
 
   server.tool(
     "create_page",
-    "Create a new (empty) page. For a page with content use build_page instead. type is a KIND (main/store/member/blog/custom/error/maintain) mapped to the numeric backend type; pass seo so it doesn't publish with an empty title.",
+    "Create a new (empty) page. For a page with content use build_page instead. type is a KIND (main/store/member/blog/custom/error/maintain) mapped to the numeric backend type; pass seo so it doesn't publish with an empty title. ONE page per site for main (homepage) / error / maintain, and slugs are unique per site — a duplicate is refused with the existing page_id to edit instead; only 'custom' pages can be created over and over.",
     {
       name: z.string().describe("Page name"),
       slug: z.string().describe("URL slug WITHOUT a leading slash, e.g. 'about', 'collections', 'cart'. A leading '/' is stripped automatically (the storefront matches the bare path segment, so '/cart' would 404). Homepage needs no slug (pass is_homepage:true)."),
-      type: z.enum(PAGE_KINDS).optional().describe("Page kind (main/store/member/blog/custom/error/maintain). store/member/blog need their data-source flag enabled — prefer build_page which auto-enables it."),
+      type: z.enum(PAGE_KINDS).optional().describe("Page kind (main/store/member/blog/custom/error/maintain). store/member/blog need their data-source flag enabled — prefer build_page which auto-enables it. main/error/maintain are one-per-site; use 'custom' for extra pages."),
       is_homepage: z.boolean().default(false).describe("Set as homepage"),
       seo: z
         .object({ title: z.string().optional(), description: z.string().optional(), keyword: z.string().optional(), favicon: z.string().optional(), thumbnail: z.string().optional() })
@@ -328,6 +328,12 @@ Examples:
       handle(async () => {
         const cleanSlug = normalizeSlug(slug);
         const typeNum = type ? PAGE_TYPE_NUM[type] : undefined;
+
+        // Only 'custom' pages may be created repeatedly — singleton kinds (homepage/error/
+        // maintain) and taken slugs must be edited in place instead of duplicated.
+        const conflict = await checkPageCreateConflict(api, { kind: type, slug: cleanSlug, is_homepage });
+        if (conflict) return { error: conflict.error, existing_page: conflict.existing_page };
+
         const created: any = await api.createPage({ name, ...(typeNum != null ? { type: typeNum } : {}) });
         invalidatePageCache();
         const pageId = (created && (created.id || created.data?.id || created.page?.id)) || null;

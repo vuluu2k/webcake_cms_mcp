@@ -53,6 +53,73 @@ export const PAGE_TYPE_FLAG: Record<string, string> = {
 };
 export const PAGE_KINDS = ["main", "store", "member", "blog", "custom", "error", "maintain"] as const;
 
+/** Page kinds a site only ever has ONE of. The homepage is `main`, and the storefront
+ *  resolves exactly one `error` / `maintain` page — a second one just shadows the first,
+ *  so creating it is always a mistake. `store` / `member` / `blog` are NOT here: a site
+ *  legitimately has several of each (cart + checkout + collections…, login + register…),
+ *  they are kept unique by SLUG instead. `custom` is unlimited. */
+export const SINGLETON_PAGE_KINDS: readonly string[] = ["main", "error", "maintain"];
+
+export type PageCreateConflict = {
+  error: string;
+  existing_page: { id: string; name: string; slug: string | null; type: number | null; is_homepage: boolean };
+};
+
+function briefPage(p: any) {
+  return { id: p.id, name: p.name, slug: p.slug ?? null, type: p.type ?? null, is_homepage: !!p.is_homepage };
+}
+
+/** Guard run before CREATING a page, so the agent edits the existing page instead of
+ *  piling up duplicates the storefront will never route to. Two rules:
+ *    1. singleton kinds (main/error/maintain, incl. `is_homepage`) — one per site;
+ *    2. every other kind — the slug must be free (the backend has a (site_id, slug)
+ *       unique index, so a duplicate slug fails there anyway, just with a vaguer error).
+ *  `custom` pages stay unlimited as long as their slugs differ.
+ *  Returns null when the page may be created. A failed lookup never blocks the create. */
+export async function checkPageCreateConflict(
+  api: WebcakeCmsApi,
+  { kind, slug, is_homepage }: { kind?: string; slug?: string | null; is_homepage?: boolean },
+): Promise<PageCreateConflict | null> {
+  let pages: any[];
+  try {
+    const res: any = await api.listPages();
+    pages = (res && res.data) || res || [];
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(pages)) return null;
+
+  const singleton = is_homepage ? "main" : kind;
+  if (singleton && SINGLETON_PAGE_KINDS.includes(singleton)) {
+    const typeNum = PAGE_TYPE_NUM[singleton];
+    const found = pages.find((p) => (singleton === "main" ? !!p.is_homepage || p.type === typeNum : p.type === typeNum));
+    if (found) {
+      return {
+        error:
+          `This site already has a '${singleton}' page ("${found.name}"), and only one is allowed — ` +
+          `only 'custom' pages can be created repeatedly. Edit page ${found.id} instead ` +
+          `(replace_page_source / add_section / update_page), or create a 'custom' page.`,
+        existing_page: briefPage(found),
+      };
+    }
+  }
+
+  const cleanSlug = normalizeSlug(slug ?? undefined);
+  if (cleanSlug) {
+    const found = pages.find((p) => p.slug === cleanSlug);
+    if (found) {
+      return {
+        error:
+          `This site already has a page at slug "${cleanSlug}" ("${found.name}"). Slugs are unique per site — ` +
+          `edit page ${found.id} instead (replace_page_source / add_section / update_page), or pick another slug.`,
+        existing_page: briefPage(found),
+      };
+    }
+  }
+
+  return null;
+}
+
 /** Build the page.settings.seo block from simple inputs (the real shape; tokens like
  *  {{name_page}} / {{name_site}} are resolved by the storefront). */
 export function buildPageSeo(seo: any = {}): any {
@@ -198,7 +265,8 @@ Example children: [{ "type":"container", "children":[{"type":"image","opts":{...
     "build_page",
     `Create a brand-new page AND set its full content source in one step.
 Two-step safety: call with dry_run=true (default) to validate and preview, then dry_run=false to actually create + save.
-The source must be { sections: [...] } — build sections with new_section. Validation errors block the real save.`,
+The source must be { sections: [...] } — build sections with new_section. Validation errors block the real save.
+ONE page per site for type main (homepage) / error / maintain, and slugs are unique per site: a duplicate is refused (dry_run reports blocked:true) and you get the existing page_id to edit instead. Only 'custom' pages can be created over and over.`,
     {
       name: z.string().describe("Page name"),
       slug: z.string().describe("URL slug WITHOUT a leading slash, e.g. 'about', 'collections', 'cart'. A leading '/' is stripped automatically (the storefront matches the bare path segment, so '/cart' would 404). Store pages MUST use the conventional slugs: category='collections', product detail='products', cart='cart', checkout='checkout', thank-you='complete'. The homepage needs no slug (pass is_homepage:true)."),
@@ -235,17 +303,28 @@ The source must be { sections: [...] } — build sections with new_section. Vali
         // so "/cart" would 404. Homepage (blank/"/") → undefined (matched by is_nil(slug)).
         const cleanSlug = normalizeSlug(slug);
 
+        // Only 'custom' pages may be created over and over; singleton kinds and taken
+        // slugs must be edited in place instead of duplicated.
+        const conflict = await checkPageCreateConflict(api, { kind, slug: cleanSlug, is_homepage });
+
         if (dry_run) {
           return {
             dry_run: true,
+            ...(conflict ? { blocked: true, conflict } : {}),
             validation,
             request: { name, slug: cleanSlug ?? null, type: kind ?? null, page_type_num: typeNum ?? null, is_homepage, sections: (parsed && parsed.sections || []).length },
             will_enable_feature: requiredFlag ?? null,
             renders_at_breakpoints: ["bp1", "bp2", "bp3", "bp4"],
-            hint: validation.valid
+            hint: conflict
+              ? conflict.error
+              : validation.valid
               ? `Looks valid. On save, every node's runtime is expanded into the bp1..bp4 keys the storefront renders. Call again with dry_run=false to create and save the page.${requiredFlag ? ` Will also enable site.settings.${requiredFlag} so its data bindings resolve.` : ""}`
               : "Fix the errors above before saving.",
           };
+        }
+
+        if (conflict) {
+          return { error: conflict.error, existing_page: conflict.existing_page };
         }
 
         if (!validation.valid) {

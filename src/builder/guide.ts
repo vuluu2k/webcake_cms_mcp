@@ -302,6 +302,14 @@ Rule of thumb: if the page shows products, a cart, customer/order data, or blog 
 set \`type\` accordingly so the binding source is turned on. A binding target like
 \`product::product_price\` REQUIRES its page to be the matching type.
 
+### ONE page per singleton type — only \`custom\` is unlimited
+A site has exactly ONE homepage (\`main\`), ONE \`error\` page and ONE \`maintain\` page; a second
+one only shadows the first, so \`create_page\` / \`build_page\` / \`start_page_draft\` REFUSE it and
+hand you the existing \`page_id\` — edit that page (replace_page_source / add_section /
+update_page) instead of creating another. \`store\`/\`member\`/\`blog\` may have several pages
+(cart + checkout + collections…, login + register…) but each SLUG is unique per site, so those
+are refused on a duplicate slug. \`custom\` pages are unlimited as long as their slugs differ.
+
 ## Build the WHOLE storefront — every page to the SAME standard (NOT just the home page)
 A shop is multi-page. Build EACH page to a real e-commerce standard with the same palette,
 spacing and header/footer — never leave the home page rich and the rest as bare stubs.
