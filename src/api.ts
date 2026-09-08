@@ -426,20 +426,48 @@ export class WebcakeCmsApi {
   }
 
   // ── Blog Articles ──
+  // NOTE: the `/api/v1/cms_function/:site_id/blog/article/*` routes are NOT usable from here.
+  // They sit behind builderx_api's CmsFunctionAuth plug, which requires the per-site CMS *admin*
+  // token (api_cms_keys, plug_type "admin_cms") as the Bearer — a storefront/session JWT always
+  // gets 401 "Token not found". Everything below therefore uses the same dashboard blog API the
+  // builder UI calls with the session JWT, except article detail, which has no dashboard route
+  // and uses the public read route.
+
+  /** List articles (dashboard). Query: page, limit, term (searches name + slug).
+   *  Response: { success, articles: { data: [...], total_entries, page, limit, term } }. */
   listArticles(query?: any) {
-    return this.request("GET", `/api/v1/cms_function/${this.siteId}/blog/article/all`, { query });
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/blog/articles/all`, { query });
   }
+  /** Articles filed under ONE blog category. Query: page, limit, article_id?, category_ids?.
+   *  Response: { data: { articles: [...] } }. */
+  listArticlesByCategory(categoryId: string, query?: any) {
+    return this.request("GET", `/api/v1/dashboard/site/${this.siteId}/blog/articles/${categoryId}`, { query });
+  }
+  /** Article detail (full content). Public read route — the dashboard API has no GET-by-id.
+   *  Response: { success, data: {...article} }; 422 "Article not found!" when missing/removed. */
   getArticle(id: string) {
-    return this.request("GET", `/api/v1/cms_function/${this.siteId}/blog/article/${id}`);
+    return this.request("GET", `/view/${this.siteId}/article/${id}`);
   }
-  createArticle(params: any) {
-    return this.request("POST", `/api/v1/cms_function/${this.siteId}/blog/article`, { body: params });
+  /** Update an article through the dashboard command pipeline — same command shape as create
+   *  (name_article / summary_article / content_article / image_article / set_article_custom_slug /
+   *  set_article_visible / set_article_tags / bulk_add_category_to_article …). Each command's
+   *  `data.id` is the article id. Commands run in order, so slug commands must follow name ones. */
+  updateBlogArticle(commands: any[]) {
+    return this.request("POST", `/api/v1/dashboard/site/${this.siteId}/blog/articles/update`, {
+      body: { site_id: this.siteId, commands },
+      timeout: 60000,
+    });
   }
-  updateArticle(id: string, params: any) {
-    return this.request("PATCH", `/api/v1/cms_function/${this.siteId}/blog/article/${id}`, { body: params });
+  /** Soft-delete articles (sets is_removed) via the dashboard command pipeline. */
+  deleteArticles(ids: string[]) {
+    return this.request("POST", `/api/v1/dashboard/site/${this.siteId}/blog/articles/delete`, {
+      body: { site_id: this.siteId, commands: [{ name: "bulk_delete_article", data: { ids } }] },
+      timeout: 60000,
+    });
   }
+  /** Delete a single article. */
   deleteArticle(id: string) {
-    return this.request("DELETE", `/api/v1/cms_function/${this.siteId}/blog/article/${id}`);
+    return this.deleteArticles([id]);
   }
   /** Create a blog/article category. Command-based: pass a `commands` array whose entries
    *  each carry a caller-generated `data.id` (the new category id). Response is generic. */

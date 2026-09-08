@@ -59,16 +59,14 @@ async function clearSeedData(api: WebcakeCmsApi): Promise<{ products: number; ca
     }
   } catch { /* best-effort */ }
 
-  // Blog articles — list then delete one by one (best-effort; blog cleanup must never fail site creation).
+  // Blog articles — list then bulk-delete (best-effort; blog cleanup must never fail site creation).
   try {
     const res: any = await api.listArticles({ page: 1, limit: 200 });
-    const articles = (res && res.data) || res || [];
+    const articles = (res && (res.articles?.data || res.articles || res.data)) || [];
     const ids = (Array.isArray(articles) ? articles : []).map((a: any) => a.id).filter(Boolean);
-    for (const id of ids) {
-      try {
-        await api.deleteArticle(id);
-        result.articles++;
-      } catch { /* skip the ones that fail */ }
+    if (ids.length) {
+      await api.deleteArticles(ids);
+      result.articles = ids.length;
     }
   } catch { /* best-effort */ }
 
